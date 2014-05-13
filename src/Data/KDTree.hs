@@ -36,23 +36,19 @@ kdtree = kdtreeBy id
 kdtreeBy :: (G.Vector v a, a ~ V3 Double) => (a -> V3 Double) -> Int -> Int -> v a -> KDTree v a
 kdtreeBy f b d = go
   where go fs | d < 1 || G.length fs <= b = Leaf (G.convert fs)
-              | otherwise = do
+              | otherwise = Node p n (kdtreeBy f (d-1) b l) (kdtreeBy f (d-1) b r)
+                  where n     = [V3 1 0 0, V3 0 1 0, V3 0 0 1] !! (d `mod` 3)
+                        p     = mean . G.map f $ fs
+                        (l,r) = G.unstablePartition (\x -> distPlanePoint p n (f x) < 0) fs
 
-                let n = [V3 1 0 0, V3 0 1 0, V3 0 0 1] !! (d `mod` 3)
+                        --(l,r) = splitHalfBy (compare `on` \x -> distPlanePoint 0 n (f x)) fs
+                        --p     = G.head r
 
-                let p = mean . G.map f $ fs
-                let (l,r) = G.unstablePartition (\x -> distPlanePoint p n (f x) < 0) fs
-
-                --let (l,r) = splitHalfBy (compare `on` \x -> distPlanePoint 0 n (f x)) fs
-                --let p = G.head r
-
-                Node p n (kdtreeBy f (d-1) b l) (kdtreeBy f (d-1) b r)
-
-splitHalfBy :: (G.Vector v a) => (a -> a -> Ordering) -> v a -> (v a, v a)
-splitHalfBy f vs = G.splitAt (G.length vs `quot` 2)
-                 . G.fromListN (G.length vs)
-                 . L.sortBy f
-                 $ G.toList vs
+--splitHalfBy :: (G.Vector v a) => (a -> a -> Ordering) -> v a -> (v a, v a)
+--splitHalfBy f vs = G.splitAt (G.length vs `quot` 2)
+--                 . G.fromListN (G.length vs)
+--                 . L.sortBy f
+--                 $ G.toList vs
 
 
 
