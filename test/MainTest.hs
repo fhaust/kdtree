@@ -13,8 +13,11 @@ import qualified Data.Vector as V
 
 import Control.Applicative
 
-import qualified Data.KDTree as KD
+import qualified Data.KDTree    as KD
+import qualified Data.KDTreeF   as KDF
 import qualified Data.LinSearch as LS
+
+import Data.Functor.Foldable
 
 import Linear
 
@@ -24,20 +27,27 @@ instance Arbitrary a => Arbitrary (V3 a) where
 instance Arbitrary a => Arbitrary (V.Vector a) where
   arbitrary = V.fromList . getNonEmpty <$> arbitrary
 
+type MinBucket = NonNegative Int
+type MaxDepth  = NonNegative Int
 
-prop_nn :: (Int,V3 Double,V.Vector (V3 Double)) -> Bool
-prop_nn (d,p,vs) = treeSearch == linSearch
-  where treeSearch = KD.nearestNeighbor (KD.kdtree d vs) p
+prop_nn :: (MinBucket,MaxDepth,V3 Double,V.Vector (V3 Double)) -> Bool
+prop_nn (NonNegative b,NonNegative d,p,vs) = treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbor (KD.kdtree d b vs) p
         linSearch  = LS.nearestNeighbor vs p
 
-prop_nns :: (Int,V3 Double,V.Vector (V3 Double)) -> Bool
-prop_nns (d,p,vs) = treeSearch == linSearch
-  where treeSearch = KD.nearestNeighbors (KD.kdtree d vs) p
+prop_f_nn :: (MinBucket,MaxDepth,V3 Double,V.Vector (V3 Double)) -> Bool
+prop_f_nn (NonNegative b,NonNegative d,p,vs) = treeSearch == linSearch
+  where treeSearch = head $ hylo (KDF.nearestNeighborsF p id) (KDF.kdtreeF b d) (vs,0)
+        linSearch  = LS.nearestNeighbor vs p
+
+prop_nns :: (MinBucket,MaxDepth,V3 Double,V.Vector (V3 Double)) -> Bool
+prop_nns (NonNegative b,NonNegative d,p,vs) = treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbors (KD.kdtree d b vs) p
         linSearch  = LS.nearestNeighbors vs p
 
-prop_nr :: (Int,V3 Double,Double,V.Vector (V3 Double)) -> Bool
-prop_nr (d,p,r,vs) = treeSearch == linSearch
-  where treeSearch = KD.pointsAround (KD.kdtree d vs) r p
+prop_nr :: (MinBucket,MaxDepth,V3 Double,Double,V.Vector (V3 Double)) -> Bool
+prop_nr (NonNegative b,NonNegative d,p,r,vs) = treeSearch == linSearch
+  where treeSearch = KD.pointsAround (KD.kdtree d b vs) r p
         linSearch  = LS.pointsAround vs r p
 
 main :: IO ()
