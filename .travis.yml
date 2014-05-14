@@ -1,1 +1,8 @@
 language: haskell
+ghc:
+  - 7.8.2
+  - 7.6
+  - 7.4
+before_script:
+  - git clone https://github.com/ekmett/recursion-schemes/ /tmp/recursion-schemes
+  - cabal install /tmp/recursion-schemes
