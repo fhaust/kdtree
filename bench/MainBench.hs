@@ -52,7 +52,7 @@ main = do
      , bgroup "nr"
        [ bench "linear_nr" $ nf (uncurry2 Lin.pointsAround) (vs,1,q)
        , bench "kdtree_nr" $ nf (uncurry2 KD.pointsAround)  (kd,1,q)
-       , bench "kdtree_nr" $ nf (uncurry2 KDF.pointsAround) (1,q,kdf)
+       , bench "kdtreef_nr" $ nf (uncurry2 KDF.pointsAround) (1,q,kdf)
        ]
      --, bgroup "build tree"
      --  [ bench "kdtree_build" $ nf (KD.kdtree 64 8) vs
