@@ -17,7 +17,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:    Data.KDTree,
-                      Data.KDTreeF,
+                      Data.KDTreeF2,
                       Data.LinSearch
   -- other-modules:
   -- other-extensions:
@@ -51,7 +51,7 @@ benchmark mainbench
   type:               exitcode-stdio-1.0
   main-is:            MainBench.hs
   hs-source-dirs:     bench
-  ghc-options:        -Wall -O2 -fllvm -fforce-recomp
+  ghc-options:        -Wall -O2 -fllvm
   build-depends:      base >= 4.7 && <4.8,
                       kdtree,
                       criterion,
