@@ -17,6 +17,8 @@ import Linear
 
 import Control.DeepSeq
 
+import Data.KDTree.Common
+
 type Distance = Double
 
 data KDTree v a = Node { _point  :: !(V3 Double)
@@ -69,17 +71,19 @@ nearestNeighborsBy f (Node p n l r) q = if d < 0 then go nnl nnr else go nnr nnl
         nnl = nearestNeighborsBy f l q
         nnr = nearestNeighborsBy f r q
 
-        -- recursively merge the two children
-        -- the second line makes sure that points in the
-        -- 'safe' region are prefered
-        go []     bs     = bs
-        go (a:as) bs     | qdq a < (d*d) = a : go as bs
-        go as     []     = as
-        go (a:as) (b:bs) | qdq a < qdq b      = a : go as (b:bs)
-                         | otherwise          = b : go (a:as) bs
+        go = mergeBuckets f d q
 
-        -- quadratic distance to query point
-        qdq = qd q . f
+        ---- recursively merge the two children
+        ---- the second line makes sure that points in the
+        ---- 'safe' region are prefered
+        --go []     bs     = bs
+        --go (a:as) bs     | qdq a < (d*d) = a : go as bs
+        --go as     []     = as
+        --go (a:as) (b:bs) | qdq a < qdq b      = a : go as (b:bs)
+        --                 | otherwise          = b : go (a:as) bs
+
+        ---- quadratic distance to query point
+        --qdq = qd q . f
 
 --------------------------------------------------
 

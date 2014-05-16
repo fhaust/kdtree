@@ -10,8 +10,6 @@ import qualified Data.KDTreeF2 as KDF
 import qualified Data.Vector as V
 import qualified Data.List as L
 
-{-import Data.Functor.Foldable-}
-
 import Control.DeepSeq
 
 import System.Random
@@ -54,6 +52,21 @@ main = do
        , bench "kdtree_nr" $ nf (uncurry2 KD.pointsAround)  (kd,1,q)
        , bench "kdtreef_nr" $ nf (uncurry2 KDF.pointsAround) (1,q,kdf)
        ]
+     , bgroup "full_nn"
+       [ bench "linear_full_nn"  $ nf (Lin.nearestNeighbor vs) q
+       , bench "kdtree_full_nn"  $ nf (uncurry $ KD.nearestNeighbor . KD.kdtree 64 8) (vs,q)
+       , bench "kdtreef_full_nn" $ nf (uncurry $ KDF.fullNN 64 8) (vs,q)
+       ]
+     , bgroup "full_nn5"
+       [ bench "linear_full_nn5"  $ nf (L.take 5 . flip Lin.nearestNeighbors q) vs
+       , bench "kdtree_full_nn5"  $ nf (L.take 5 . flip KD.nearestNeighbors q . KD.kdtree 64 8) vs
+       , bench "kdtreef_full_nn5" $ nf (L.take 5 . flip (KDF.fullNNS 5 64 8) q) vs
+       ]
+     , bgroup "full_nr"
+       [ bench "linear_full_nr" $ nf (uncurry2 Lin.pointsAround) (vs,1,q)
+       , bench "kdtree_full_nr" $ nf (uncurry2 $ KD.pointsAround . KD.kdtree 64 8)  (vs,1,q)
+       , bench "kdtreef_full_nr" $ nf (uncurry $ KDF.fullNNR 1 64 8) (vs,q)
+       ]
      --, bgroup "build tree"
      --  [ bench "kdtree_build" $ nf (KD.kdtree 64 8) vs
      --  [>, bench "kdtreef_build" $ nf (KDF.kdtree 64 8) vs<]
@@ -65,8 +78,6 @@ main = do
      ]
 uncurry2 :: (a -> b -> c -> d) -> (a, b, c) -> d
 uncurry2 f (a,b,c) = f a b c
-
-buildAndCollapse (q,vs) = KD.nearestNeighbor (KD.kdtree 64 8 vs) q
 
 instance NFData a => NFData (V3 a) where
     rnf (V3 x y z) = x `seq` y `seq` z `seq` ()
