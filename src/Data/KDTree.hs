@@ -1,6 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -22,19 +21,31 @@ import Control.Applicative
 
 import Data.Functor.Foldable
 
-import Data.KDTree.Common
+--------------------------------------------------
+
+class KDCompare a where
+  dimDistance  :: Depth -> a -> a -> Double
+  realDistance :: a -> a -> Double
+
+instance Real a => KDCompare (V3 a) where
+  dimDistance d (V3 ax ay az) (V3 bx by bz) = case d `mod` 3 of
+                                                0 -> realToFrac $ ax - bx
+                                                1 -> realToFrac $ ay - by
+                                                2 -> realToFrac $ az - bz
+                                                _ -> error "this shouldn't happen"
+  realDistance a b = realToFrac $ qd a b
 
 --------------------------------------------------
 
 -- | define a kd tree
 --   planes are seperated by point + normal
-data KDTree v a = Node (V3 Double) (V3 Double) (KDTree v a) (KDTree v a)
+data KDTree v a = Node Depth a (KDTree v a) (KDTree v a)
                 | Leaf (v a)
   deriving (Show, Read, Eq)
 
 
 -- | define the fix point variant of KDTree
-data KDTreeF v a f = NodeF (V3 Double) (V3 Double) f f | LeafF (v a)
+data KDTreeF v a f = NodeF Depth a f f | LeafF (v a)
   deriving (Show, Read, Eq, Functor)
 
 
@@ -43,11 +54,11 @@ type instance Base (KDTree v a) = KDTreeF v a
 
 instance Foldable (KDTree v a) where
   project (Leaf a)       = LeafF a
-  project (Node p n l r) = NodeF p n l r
+  project (Node d p l r) = NodeF d p l r
 
 instance Unfoldable (KDTree v a) where
   embed (LeafF a)       = Leaf a
-  embed (NodeF p n l r) = Node p n l r
+  embed (NodeF d p l r) = Node d p l r
 
 ---
 
@@ -57,26 +68,34 @@ instance (NFData (v a), NFData a) => NFData (KDTree v a) where
 
 --------------------------------------------------
 
-newtype MinBucket = MinBucket Int
+newtype MinBucket = MinBucket {unMinBucket :: Int}
   deriving (Eq,Ord,Show,Read,Num)
 
-newtype MaxDepth = MaxDepth Int
+newtype MaxDepth = MaxDepth {unMaxDepth :: Int}
   deriving (Eq,Ord,Show,Read,Num)
+
+newtype Depth = Depth {unDepth :: Int}
+  deriving (Eq,Ord,Show,Read,Num,Real,Enum,Integral)
 
 --------------------------------------------------
 
 kdtree :: (G.Vector v a, a ~ V3 Double) => MinBucket -> MaxDepth -> v a -> KDTree v a
-kdtree mb md vs = ana (kdtreeF mb) (md,vs)
+kdtree mb md vs = ana (kdtreeF mb md) (0,vs)
 
-kdtreeF :: (G.Vector v a, a ~ V3 Double)
-          => MinBucket -> (MaxDepth,v a) -> KDTreeF v a (MaxDepth,v a)
-kdtreeF (MinBucket b) = go
-  where go (MaxDepth d,fs) | d < 1 || G.length fs <= b = LeafF (G.convert fs)
-                           | otherwise = NodeF p n (MaxDepth $ d-1,l) (MaxDepth $ d-1,r)
-                               where n     = [V3 1 0 0, V3 0 1 0, V3 0 0 1] !! (d `mod` 3)
-                                     p     = mean fs
-                                     (l,r) = G.unstablePartition (\x -> distPlanePoint p n x < 0) fs
+kdtreeF :: (KDCompare a, G.Vector v a)
+          => MinBucket -> MaxDepth -> (Depth,v a) -> KDTreeF v a (Depth,v a)
+kdtreeF mb md = go
+  where go (d,fs) | maxDepth || minBucket = LeafF (G.convert fs)
+                  | otherwise             = NodeF d (G.head r) (d+1,l) (d+1,r)
 
+                      where p     = G.head fs
+                            (l,r) = G.splitAt (G.length fs `quot` 2)
+                                  . G.fromListN (G.length fs)
+                                  . L.sortBy (compare `on` dimDistance d p)
+                                  $ G.toList fs
+
+                            maxDepth  = unDepth d >= unMaxDepth md
+                            minBucket = G.length fs <= unMinBucket mb
 
 {-# INLINE kdtreeF #-}
 
@@ -87,17 +106,30 @@ kdtreeF (MinBucket b) = go
 nearestNeighbors :: (G.Vector v a, a~V3 Double) => V3 Double -> KDTree v (V3 Double) -> [V3 Double]
 nearestNeighbors q = cata (nearestNeighborsF q)
 
-nearestNeighborsF :: (G.Vector v a, a ~ V3 Double) => a -> KDTreeF v a [a] -> [a]
-nearestNeighborsF q (LeafF vs)      = L.sortBy (compare `on` qd q) . G.toList $ vs
-nearestNeighborsF q (NodeF p n l r) = if d < 0 then go l r else go r l
+nearestNeighborsF :: (KDCompare a, G.Vector v a) => a -> KDTreeF v a [a] -> [a]
+nearestNeighborsF q (LeafF vs)      = L.sortBy (compare `on` realDistance q) . G.toList $ vs
+nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 
-  where d   = distPlanePoint p n q
-        go  = mergeBuckets id d q
+  where x   = dimDistance d p q -- distPlanePoint p n q
+        go  = mergeBuckets x q
 
         {-# INLINE go #-}
-        {-# INLINE d #-}
 
 {-# INLINE nearestNeighborsF #-}
+
+-- recursively merge the two children
+-- the second line makes sure that points in the
+-- 'safe' region are prefered
+mergeBuckets :: (KDCompare a) => Double -> a -> [a] -> [a] -> [a]
+mergeBuckets x q = go
+  where rdq = realDistance q
+        go []     bs                          = bs
+        go (a:as) bs     | rdq a < (x*x)      = a : go as bs
+        go as     []                          = as
+        go (a:as) (b:bs) | rdq a < rdq b      = a : go as (b:bs)
+                         | otherwise          = b : go (a:as) bs
+
+{-# INLINE mergeBuckets #-}
 
 --------------------------------------------------
 
@@ -122,17 +154,4 @@ pointsAroundBy r q = takeWhile (\p -> qd q p < (r*r)) <$> nearestNeighborsF q
 
 {-# INLINE pointsAroundBy #-}
 --------------------------------------------------
-
-{-# INLINE distPlanePoint #-}
-distPlanePoint :: (Metric f, Num a) => f a -> f a -> f a -> a
-distPlanePoint p n x = n `dot` (x ^-^ p)
-
-mean :: (G.Vector v a, Fractional a) => v a -> a
-mean = uncurry (/) . G.foldl' (\(!s,!l) b -> (s+b,l+1)) (0,0)
-
-stddev
-  :: (Floating b, Fractional (f b), Functor f, G.Vector v (f b)) =>
-     f b -> v (f b) -> f b
-stddev m vs = fmap sqrt . (/ (n-1)) . G.sum . G.map (\x -> (x - m)^(2::Int)) $ vs
-  where n = fromIntegral . G.length $ vs
 
