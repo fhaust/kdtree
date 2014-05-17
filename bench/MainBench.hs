@@ -7,7 +7,7 @@ import qualified Data.LinSearch as Lin
 import qualified Data.KDTree as KD
 import qualified Data.GKDTree as GKD
 
-import qualified Data.Vector as V
+import qualified Data.Vector.Storable as V
 import qualified Data.List as L
 
 import Control.DeepSeq
