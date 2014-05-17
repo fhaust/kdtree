@@ -5,6 +5,7 @@ import Criterion.Main
 
 import qualified Data.LinSearch as Lin
 import qualified Data.KDTree as KD
+import qualified Data.GKDTree as GKD
 
 import qualified Data.Vector as V
 import qualified Data.List as L
@@ -28,7 +29,8 @@ main = do
 
 
   -- create kdtree from dataset
-  let kd  = force . KD.kdtree 64 8 $ vs
+  let kd  = force . KD.kdtree  64 8 $ vs
+  let gkd = force . GKD.kdtree 64 8 $ vs
   let nrRadius = 0.1
 
 
@@ -39,14 +41,17 @@ main = do
      [ bgroup "nn"
        [ bench  "linear_nn"   $ nf (Lin.nearestNeighbor vs) q
        , bench  "kdtree_nn"   $ nf (KD.nearestNeighbor q) kd
+       , bench  "gkdtree_nn"  $ nf (GKD.nearestNeighbor q) gkd
        ]
      , bgroup "nn5"
        [ bench  "linear_nn5"  $ nf (L.take 5 . uncurry Lin.nearestNeighbors) (vs,q)
        , bench  "kdtree_nn5"  $ nf (L.take 5 . KD.nearestNeighbors q)  kd
+       , bench  "gkdtree_nn5" $ nf (L.take 5 . GKD.nearestNeighbors q)  gkd
        ]
      , bgroup "nr"
        [ bench "linear_nr"  $ nf (uncurry2 Lin.pointsAround) (vs,nrRadius,q)
        , bench "kdtree_nr"  $ nf (KD.pointsAround nrRadius q) kd
+       , bench "gkdtree_nr" $ nf (GKD.pointsAround nrRadius q) gkd
        ]
      --, bgroup "full_nn"
      --  [ bench "linear_full_nn"  $ nf (Lin.nearestNeighbor vs) q
