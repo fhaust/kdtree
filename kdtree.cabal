@@ -17,8 +17,6 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:    Data.KDTree,
-                      Data.KDTreeF2,
-                      Data.KDTreeU,
                       Data.LinSearch
   -- other-modules:
   -- other-extensions:
@@ -45,8 +43,7 @@ test-suite maintest
                       test-framework,
                       test-framework-th,
                       test-framework-quickcheck2,
-                      linear,
-                      recursion-schemes
+                      linear
 
 benchmark mainbench
   type:               exitcode-stdio-1.0
@@ -59,6 +56,5 @@ benchmark mainbench
                       vector,
                       deepseq,
                       random,
-                      linear,
-                      recursion-schemes
+                      linear
   default-language:   Haskell2010
