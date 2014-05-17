@@ -27,13 +27,13 @@ class KDCompare a where
   dimDistance  :: Depth -> a -> a -> Double
   realDistance :: a -> a -> Double
 
-instance Real a => KDCompare (V3 a) where
+instance (Floating a, Real a) => KDCompare (V3 a) where
   dimDistance d (V3 ax ay az) (V3 bx by bz) = case d `mod` 3 of
                                                 0 -> realToFrac $ ax - bx
                                                 1 -> realToFrac $ ay - by
                                                 2 -> realToFrac $ az - bz
                                                 _ -> error "this shouldn't happen"
-  realDistance a b = realToFrac $ qd a b
+  realDistance a b = realToFrac $ distance a b
 
 --------------------------------------------------
 
@@ -103,17 +103,18 @@ kdtreeF mb md = go
 
 -- | get all points in the tree, sorted by distance to the 'q'uery point
 -- | this is the 'bread and butter' function and should be quite fast
-nearestNeighbors :: (G.Vector v a, a~V3 Double) => V3 Double -> KDTree v (V3 Double) -> [V3 Double]
+nearestNeighbors :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
 nearestNeighbors q = cata (nearestNeighborsF q)
 
 nearestNeighborsF :: (KDCompare a, G.Vector v a) => a -> KDTreeF v a [a] -> [a]
 nearestNeighborsF q (LeafF vs)      = L.sortBy (compare `on` realDistance q) . G.toList $ vs
 nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 
-  where x   = dimDistance d p q -- distPlanePoint p n q
+  where x   = dimDistance d p q
         go  = mergeBuckets x q
 
         {-# INLINE go #-}
+        {-# INLINE x  #-}
 
 {-# INLINE nearestNeighborsF #-}
 
@@ -121,37 +122,27 @@ nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 -- the second line makes sure that points in the
 -- 'safe' region are prefered
 mergeBuckets :: (KDCompare a) => Double -> a -> [a] -> [a] -> [a]
-mergeBuckets x q = go
+mergeBuckets d q = go
   where rdq = realDistance q
-        go []     bs                          = bs
-        go (a:as) bs     | rdq a < (x*x)      = a : go as bs
-        go as     []                          = as
-        go (a:as) (b:bs) | rdq a < rdq b      = a : go as (b:bs)
-                         | otherwise          = b : go (a:as) bs
+        go []     bs                     = bs
+        go (a:as) bs     | rdq a < d     = a : go as bs
+        go as     []                     = as
+        go (a:as) (b:bs) | rdq a < rdq b = a : go as (b:bs)
+                         | otherwise     = b : go (a:as) bs
 
 {-# INLINE mergeBuckets #-}
 
 --------------------------------------------------
 
 -- | get the nearest neighbor of point q
-nearestNeighbor :: (G.Vector v a, a ~ V3 Double) => V3 Double -> KDTree v a -> [a]
-nearestNeighbor q = cata (nearestNeighborF q)
-
-nearestNeighborF :: (G.Vector v a, a ~ V3 Double) => a -> KDTreeF v a [a] -> [a]
-nearestNeighborF q = take 1 <$> nearestNeighborsF q
-
-{-# INLINE nearestNeighborF #-}
+nearestNeighbor :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
+nearestNeighbor q = take 1 . nearestNeighbors q
 
 ----------------------------------------------------
 
 -- | return the points around a 'q'uery point up to radius 'r'
-pointsAround :: (G.Vector v a, a~V3 Double) => Double -> V3 Double -> KDTree v a -> [a]
-pointsAround r q = cata (pointsAroundBy r q)
+pointsAround :: (KDCompare a, G.Vector v a) => Double -> a -> KDTree v a -> [a]
+pointsAround r q = takeWhile (\p -> realDistance q p < abs r) . nearestNeighbors q
 
-pointsAroundBy :: (G.Vector v a, a ~ V3 Double)
-               => Double -> V3 Double -> KDTreeF v a [a] -> [a]
-pointsAroundBy r q = takeWhile (\p -> qd q p < (r*r)) <$> nearestNeighborsF q
-
-{-# INLINE pointsAroundBy #-}
 --------------------------------------------------
 
