@@ -25,12 +25,12 @@ import Data.KDTree.Common
 type Distance = Double
 
 
-data KDTreeF v a f = Node { _point  :: !(V3 Double)
-                          , _normal :: !(V3 Double)
-                          , _left   :: f
-                          , _right  :: f
-                          }
-                   | Leaf { _bucket :: v a }
+data KDTreeF v a f = NodeF { _point  :: !(V3 Double)
+                           , _normal :: !(V3 Double)
+                           , _left   :: f
+                           , _right  :: f
+                           }
+                   | LeafF { _bucket :: v a }
 
   deriving (Show, Read, Eq, Functor)
 
@@ -58,17 +58,20 @@ kdtree mb md vs = ana (kdtreeF mb) (md,vs)
 
 kdtreeF :: (G.Vector v a, a ~ V3 Double) => Int -> (Int,v a) -> KDTreeF v a (Int,v a)
 kdtreeF = kdtreeBy id
-{-# INLINE kdtreeF #-}
 
 kdtreeBy :: (G.Vector v a, a ~ V3 Double)
          => (a -> V3 Double) -> Int -> (Int,v a) -> KDTreeF v a (Int,v a)
 kdtreeBy f b = go
-  where go (d,fs) | d < 1 || G.length fs <= b = Leaf (G.convert fs)
-                  | otherwise = Node p n (d-1,l) (d-1,r)
+  where go (d,fs) | d < 1 || G.length fs <= b = LeafF (G.convert fs)
+                  | otherwise = NodeF p n (d-1,l) (d-1,r)
                       where n     = [V3 1 0 0, V3 0 1 0, V3 0 0 1] !! (d `mod` 3)
                             p     = mean . G.map f $ fs
                             (l,r) = G.unstablePartition (\x -> distPlanePoint p n (f x) < 0) fs
+
+{-# INLINE kdtree #-}
+{-# INLINE kdtreeF #-}
 {-# INLINE kdtreeBy #-}
+
 
 --------------------------------------------------
 
@@ -77,20 +80,21 @@ kdtreeBy f b = go
 nearestNeighbors :: (G.Vector v a, a ~ V3 Double)
                  => V3 Double -> KDTree v a -> [V3 Double]
 nearestNeighbors q = cata (nearestNeighborsF q)
-{-# INLINE nearestNeighbors #-}
 
 
 nearestNeighborsF :: (G.Vector v a, a~V3 Double)
                   => V3 Double -> KDTreeF v (V3 Double) [V3 Double] -> [V3 Double]
 nearestNeighborsF = nearestNeighborsBy id
-{-# INLINE nearestNeighborsF #-}
 
 nearestNeighborsBy :: (G.Vector v a) => (a -> V3 Double) -> V3 Double -> KDTreeF v a [a] -> [a]
-nearestNeighborsBy f q (Leaf vs)      = L.sortBy (compare `on` (qd q . f)) . G.toList $ vs
-nearestNeighborsBy f q (Node p n l r) = if d < 0 then go l r else go r l
+nearestNeighborsBy f q (LeafF vs)      = L.sortBy (compare `on` (qd q . f)) . G.toList $ vs
+nearestNeighborsBy f q (NodeF p n l r) = if d < 0 then go l r else go r l
 
   where d   = distPlanePoint p n q
         go  = mergeBuckets f d q
+
+        {-# INLINE go #-}
+        {-# INLINE d #-}
 
         ---- recursively merge the two children
         ---- the second line makes sure that points in the
@@ -105,6 +109,8 @@ nearestNeighborsBy f q (Node p n l r) = if d < 0 then go l r else go r l
         --qdq = qd q . f
 
 {-# INLINE nearestNeighborsBy #-}
+{-# INLINE nearestNeighbors #-}
+{-# INLINE nearestNeighborsF #-}
 
 --------------------------------------------------
 
@@ -113,15 +119,17 @@ nearestNeighborsBy f q (Node p n l r) = if d < 0 then go l r else go r l
 
 nearestNeighbor :: (G.Vector v a, a ~ V3 Double) => V3 Double -> KDTree v a -> [a]
 nearestNeighbor q = cata (nearestNeighborF q)
-{-# INLINE nearestNeighbor #-}
 
 
 nearestNeighborF :: (G.Vector v a, a ~ V3 Double) => V3 Double -> KDTreeF v a [a] -> [a]
 nearestNeighborF = nearestNeighborBy id
-{-# INLINE nearestNeighborF #-}
 
 nearestNeighborBy :: (G.Vector v a) => (a -> V3 Double) -> V3 Double -> KDTreeF v a [a] -> [a]
 nearestNeighborBy f q = fmap (take 1) (nearestNeighborsBy f q)
+
+
+{-# INLINE nearestNeighborF #-}
+{-# INLINE nearestNeighbor #-}
 {-# INLINE nearestNeighborBy #-}
 
 --------------------------------------------------
@@ -162,5 +170,5 @@ stddev m vs = fmap sqrt . (/ (n-1)) . G.sum . G.map (\x -> (x - m)^(2::Int)) $ v
 --------------------------------------------------
 
 instance (NFData (v a), NFData a, NFData f) => NFData (KDTreeF v a f) where
-  rnf (Leaf vs)      = rnf vs
-  rnf (Node _ _ l r) = rnf l `seq` rnf r `seq` ()
+  rnf (LeafF vs)      = rnf vs
+  rnf (NodeF _ _ l r) = rnf l `seq` rnf r `seq` ()
