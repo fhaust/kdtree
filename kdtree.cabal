@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:    Data.KDTree,
                       Data.KDTreeF2,
+                      Data.KDTreeU,
                       Data.LinSearch
   -- other-modules:
   -- other-extensions:

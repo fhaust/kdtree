@@ -43,68 +43,61 @@ kdtreeBy f b d = go
                         p     = mean . G.map f $ fs
                         (l,r) = G.unstablePartition (\x -> distPlanePoint p n (f x) < 0) fs
 
+                        -- -- could be faster?
                         --(l,r) = splitHalfBy (compare `on` \x -> distPlanePoint 0 n (f x)) fs
                         --p     = G.head r
 
---splitHalfBy :: (G.Vector v a) => (a -> a -> Ordering) -> v a -> (v a, v a)
---splitHalfBy f vs = G.splitAt (G.length vs `quot` 2)
---                 . G.fromListN (G.length vs)
---                 . L.sortBy f
---                 $ G.toList vs
 
+{-# INLINE kdtree #-}
+{-# INLINE kdtreeBy #-}
 
 
 --------------------------------------------------
 
 -- | get all points in the tree, sorted by distance to the 'q'uery point
 -- | this is the 'bread and butter' function and should be quite fast
-nearestNeighbors :: (G.Vector v a, a~V3 Double) => KDTree v (V3 Double) -> V3 Double -> [V3 Double]
+nearestNeighbors :: (G.Vector v a, a~V3 Double) => V3 Double -> KDTree v (V3 Double) -> [V3 Double]
 nearestNeighbors = nearestNeighborsBy id
 
---nearestNeighborsBy :: (V.Storable a) => (a -> V3 Double) -> KDTree a -> V3 Double -> [a]
-nearestNeighborsBy :: (G.Vector v a) => (a -> V3 Double) -> KDTree v a -> V3 Double -> [a]
-nearestNeighborsBy f (Leaf vs)      q = L.sortBy (compare `on` (qd q . f)) . G.toList $ vs
-nearestNeighborsBy f (Node p n l r) q = if d < 0 then go nnl nnr else go nnr nnl
+nearestNeighborsBy :: (G.Vector v a) => (a -> V3 Double) -> V3 Double -> KDTree v a -> [a]
+nearestNeighborsBy f q (Leaf vs)      = L.sortBy (compare `on` (qd q . f)) . G.toList $ vs
+nearestNeighborsBy f q (Node p n l r) = if d < 0 then go nnl nnr else go nnr nnl
 
   where d   = distPlanePoint p n q
 
-        nnl = nearestNeighborsBy f l q
-        nnr = nearestNeighborsBy f r q
+        nnl = nearestNeighborsBy f q l
+        nnr = nearestNeighborsBy f q r
 
         go = mergeBuckets f d q
 
-        ---- recursively merge the two children
-        ---- the second line makes sure that points in the
-        ---- 'safe' region are prefered
-        --go []     bs     = bs
-        --go (a:as) bs     | qdq a < (d*d) = a : go as bs
-        --go as     []     = as
-        --go (a:as) (b:bs) | qdq a < qdq b      = a : go as (b:bs)
-        --                 | otherwise          = b : go (a:as) bs
-
-        ---- quadratic distance to query point
-        --qdq = qd q . f
+{-# INLINE nearestNeighbors #-}
+{-# INLINE nearestNeighborsBy #-}
 
 --------------------------------------------------
 
 -- | get the nearest neighbor of point q
 -- | note: dies if you pass it an empty tree
-nearestNeighbor :: (G.Vector v a, a ~ V3 Double) => KDTree v a -> V3 Double -> a
+nearestNeighbor :: (G.Vector v a, a ~ V3 Double) => V3 Double -> KDTree v a -> a
 nearestNeighbor = nearestNeighborBy id
 
-nearestNeighborBy :: (G.Vector v c) => (c -> V3 Double) -> KDTree v c -> V3 Double -> c
-nearestNeighborBy f t = head . nearestNeighborsBy f t
+nearestNeighborBy :: (G.Vector v c) => (c -> V3 Double) -> V3 Double -> KDTree v c -> c
+nearestNeighborBy f q = head . nearestNeighborsBy f q
+
+{-# INLINE nearestNeighbor #-}
+{-# INLINE nearestNeighborBy #-}
 
 --------------------------------------------------
 
 -- | return the points around a 'q'uery point up to radius 'r'
-pointsAround :: (G.Vector v a, a~V3 Double) => KDTree v a -> Double -> V3 Double -> [a]
+pointsAround :: (G.Vector v a, a~V3 Double) => Double -> V3 Double -> KDTree v a -> [a]
 pointsAround = pointsAroundBy id
 
 pointsAroundBy :: (G.Vector v a, a ~ V3 Double)
-               => (a -> V3 Double) -> KDTree v a -> Double -> V3 Double -> [a]
-pointsAroundBy f t r q = takeWhile (\p -> qd q (f p) < (r*r)) . nearestNeighborsBy f t $ q
+               => (a -> V3 Double) -> Double -> V3 Double -> KDTree v a -> [a]
+pointsAroundBy f r q t = takeWhile (\p -> qd q (f p) < (r*r)) . nearestNeighborsBy f q $ t
 
+{-# INLINE pointsAround #-}
+{-# INLINE pointsAroundBy #-}
 --------------------------------------------------
 
 {-# INLINE distPlanePoint #-}

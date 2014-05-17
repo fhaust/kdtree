@@ -6,6 +6,8 @@ import Criterion.Main
 import qualified Data.LinSearch as Lin
 import qualified Data.KDTree as KD
 import qualified Data.KDTreeF2 as KDF
+import qualified Data.KDTreeU as KU
+
 
 import qualified Data.Vector as V
 import qualified Data.List as L
@@ -39,33 +41,39 @@ main = do
      -- search the nearest neighbor
      [ bgroup "nn"
        [ bench  "linear_nn"   $ nf (Lin.nearestNeighbor vs) q
-       , bench  "kdtree_nn"   $ nf (KD.nearestNeighbor kd) q
+       , bench  "kdtree_nn"   $ nf (KD.nearestNeighbor q) kd
        , bench  "kdtreef_nn"  $ nf (KDF.nearestNeighbor q) kdf
+       , bench  "kdtreeu_nn"  $ nf (KU.nearestNeighbor q) kd
        ]
      , bgroup "nn5"
        [ bench  "linear_nn5"  $ nf (L.take 5 . uncurry Lin.nearestNeighbors) (vs,q)
-       , bench  "kdtree_nn5"  $ nf (L.take 5 . uncurry KD.nearestNeighbors)  (kd,q)
-       , bench  "kdtreef_nn5" $ nf (L.take 5 . uncurry KDF.nearestNeighbors) (q,kdf)
+       , bench  "kdtree_nn5"  $ nf (L.take 5 . KD.nearestNeighbors q)  kd
+       , bench  "kdtreef_nn5" $ nf (L.take 5 . KDF.nearestNeighbors q) kdf
+       , bench  "kdtreeu_nn5" $ nf (L.take 5 . KU.nearestNeighbors q)  kd
        ]
      , bgroup "nr"
-       [ bench "linear_nr" $ nf (uncurry2 Lin.pointsAround) (vs,1,q)
-       , bench "kdtree_nr" $ nf (uncurry2 KD.pointsAround)  (kd,1,q)
-       , bench "kdtreef_nr" $ nf (uncurry2 KDF.pointsAround) (1,q,kdf)
+       [ bench "linear_nr"  $ nf (uncurry2 Lin.pointsAround) (vs,1,q)
+       , bench "kdtree_nr"  $ nf (KD.pointsAround 1 q) kd
+       , bench "kdtreef_nr" $ nf (KDF.pointsAround 1 q) kdf
+       , bench "kdtreeu_nr" $ nf (KU.pointsAround 1 q) kd
        ]
      , bgroup "full_nn"
        [ bench "linear_full_nn"  $ nf (Lin.nearestNeighbor vs) q
-       , bench "kdtree_full_nn"  $ nf (uncurry $ KD.nearestNeighbor . KD.kdtree 64 8) (vs,q)
-       , bench "kdtreef_full_nn" $ nf (uncurry $ KDF.fullNN 64 8) (vs,q)
+       , bench "kdtree_full_nn"  $ nf (KD.nearestNeighbor q . KD.kdtree 64 8) vs
+       , bench "kdtreef_full_nn" $ nf (KDF.fullNN 64 8 q) vs
+       , bench "kdtreeu_full_nn" $ nf (KU.fullNN 64 8 q) vs
        ]
      , bgroup "full_nn5"
        [ bench "linear_full_nn5"  $ nf (L.take 5 . flip Lin.nearestNeighbors q) vs
-       , bench "kdtree_full_nn5"  $ nf (L.take 5 . flip KD.nearestNeighbors q . KD.kdtree 64 8) vs
-       , bench "kdtreef_full_nn5" $ nf (L.take 5 . flip (KDF.fullNNS 5 64 8) q) vs
+       , bench "kdtree_full_nn5"  $ nf (L.take 5 . KD.nearestNeighbors q . KD.kdtree 64 8) vs
+       , bench "kdtreef_full_nn5" $ nf (L.take 5 . KDF.fullNNS 5 64 8 q) vs
+       , bench "kdtreeu_full_nn5" $ nf (L.take 5 . KU.fullNNS 5 64 8 q) vs
        ]
      , bgroup "full_nr"
        [ bench "linear_full_nr" $ nf (uncurry2 Lin.pointsAround) (vs,1,q)
-       , bench "kdtree_full_nr" $ nf (uncurry2 $ KD.pointsAround . KD.kdtree 64 8)  (vs,1,q)
-       , bench "kdtreef_full_nr" $ nf (uncurry $ KDF.fullNNR 1 64 8) (vs,q)
+       , bench "kdtree_full_nr" $ nf (KD.pointsAround 1 q . KD.kdtree 64 8) vs
+       , bench "kdtreef_full_nr" $ nf (KDF.fullNNR 1 64 8 q) vs
+       , bench "kdtreeu_full_nr" $ nf (KU.fullNNR 1 64 8 q) vs
        ]
      --, bgroup "build tree"
      --  [ bench "kdtree_build" $ nf (KD.kdtree 64 8) vs

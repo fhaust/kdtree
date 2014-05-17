@@ -1,11 +1,11 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Data.KDTreeF2 where
+module Data.KDTreeU where
 
 
 import qualified Data.Vector.Generic  as G
@@ -17,24 +17,28 @@ import Data.Functor.Foldable
 
 import Linear
 
-import Control.DeepSeq
 import Control.Applicative
 
 import Data.KDTree.Common
 
-type Distance = Double
+import Data.KDTree (KDTree(..), mean, distPlanePoint)
+import Data.KDTreeF2 (KDTreeF(..))
 
 
-data KDTreeF v a f = NodeF { _point  :: !(V3 Double)
-                           , _normal :: !(V3 Double)
-                           , _left   :: f
-                           , _right  :: f
-                           }
-                   | LeafF { _bucket :: v a }
+--------------------------------------------------
 
-  deriving (Show, Read, Eq, Functor)
 
-type KDTree v a = Fix (KDTreeF v a)
+-- wrapping stuff
+
+type instance Base (KDTree v a) = KDTreeF v a
+
+instance Foldable (KDTree v a) where
+  project (Leaf a)       = LeafF a
+  project (Node p n l r) = NodeF p n l r
+
+instance Unfoldable (KDTree v a) where
+  embed (LeafF a)       = Leaf a
+  embed (NodeF p n l r) = Node p n l r
 
 
 --------------------------------------------------
@@ -153,22 +157,3 @@ pointsAroundBy f r q = fmap (takeWhile (\p -> qd q (f p) < (r*r))) (nearestNeigh
 
 --------------------------------------------------
 
-{-# INLINE distPlanePoint #-}
-distPlanePoint :: (Metric f, Num a) => f a -> f a -> f a -> a
-distPlanePoint p n x = n `dot` (x ^-^ p)
-
-mean :: (G.Vector v a, Fractional a) => v a -> a
-mean = uncurry (/) . G.foldl' (\(!s,!l) b -> (s+b,l+1)) (0,0)
-
-stddev
-  :: (Floating b, Fractional (f b), Functor f, G.Vector v (f b)) =>
-     f b -> v (f b) -> f b
-stddev m vs = fmap sqrt . (/ (n-1)) . G.sum . G.map (\x -> (x - m)^(2::Int)) $ vs
-  where n = fromIntegral . G.length $ vs
-
-
---------------------------------------------------
-
-instance (NFData (v a), NFData a, NFData f) => NFData (KDTreeF v a f) where
-  rnf (LeafF vs)      = rnf vs
-  rnf (NodeF _ _ l r) = rnf l `seq` rnf r `seq` ()
