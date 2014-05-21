@@ -23,29 +23,44 @@ import Data.Functor.Foldable
 --------------------------------------------------
 
 class KDCompare a where
-  dimDistance  :: Depth -> a -> a -> Double
+  data Key a :: *
+
+  kSucc :: Key a -> Key a
+  kFirst :: Key a
+
+  dimDistance  :: Key a -> a -> a -> Double
   realDistance :: a -> a -> Double
 
-instance (Floating a, Real a) => KDCompare (V3 a) where
-  dimDistance d (V3 ax ay az) (V3 bx by bz) = case d `mod` 3 of
+
+--------------------------------------------------
+
+instance (Real a, Floating a) => KDCompare (V3 a) where
+
+  newtype Key (V3 a) = V3K Int deriving (Show, Num)
+
+  kSucc  = (+1)
+  kFirst = V3K 0
+
+  dimDistance (V3K k) (V3 ax ay az) (V3 bx by bz) = case k `mod` 3 of
                                                 0 -> realToFrac $ ax - bx
                                                 1 -> realToFrac $ ay - by
                                                 2 -> realToFrac $ az - bz
-                                                _ -> error "this shouldn't happen"
+                                                _ -> error ""
   realDistance a b = realToFrac $ distance a b
+
+
 
 --------------------------------------------------
 
 -- | define a kd tree
 --   planes are seperated by point + normal
-data KDTree v a = Node Depth a (KDTree v a) (KDTree v a)
+data KDTree v a = Node (Key a) a (KDTree v a) (KDTree v a)
                 | Leaf (v a)
-  deriving (Show, Read, Eq)
 
 
 -- | define the fix point variant of KDTree
-data KDTreeF v a f = NodeF Depth a f f | LeafF (v a)
-  deriving (Show, Read, Eq, Functor)
+data KDTreeF v a f = NodeF (Key a) a f f | LeafF (v a)
+  deriving (Functor)
 
 
 -- implement Base, Foldable and Unfoldable for KDTree
@@ -70,28 +85,25 @@ instance (NFData (v a), NFData a) => NFData (KDTree v a) where
 newtype BucketSize = BucketSize {unMinBucket :: Int}
   deriving (Eq,Ord,Show,Read,Num)
 
-newtype Depth = Depth {unDepth :: Int}
-  deriving (Eq,Ord,Show,Read,Num,Real,Enum,Integral)
-
 --------------------------------------------------
 
 empty :: (G.Vector v a) => KDTree v a
 empty = Leaf G.empty
 
-kdtree :: (G.Vector v a, a ~ V3 Double) => BucketSize -> v a -> KDTree v a
-kdtree mb vs = ana (kdtreeF mb) (0,vs)
+kdtree :: (KDCompare a, G.Vector v a) => BucketSize -> v a -> KDTree v a
+kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 
 kdtreeF :: (KDCompare a, G.Vector v a)
-          => BucketSize -> (Depth,v a) -> KDTreeF v a (Depth,v a)
+          => BucketSize -> (Key a,v a) -> KDTreeF v a (Key a,v a)
 kdtreeF (BucketSize mb) = go
-  where go (d,fs) | G.length fs <= mb = LeafF (G.convert fs)
-                  | otherwise         = NodeF d (G.head r) (d+1,l) (d+1,r)
-                    where (l,r) = splitBuckets d fs
+  where go (k,fs) | G.length fs <= mb = LeafF (G.convert fs)
+                  | otherwise         = NodeF k (G.head r) (kSucc k,l) (kSucc k,r)
+                    where (l,r) = splitBuckets k fs
 
 {-# INLINE kdtreeF #-}
 
 splitBuckets :: (KDCompare a, G.Vector v a)
-             => Depth -> v a -> (v a, v a)
+             => Key a -> v a -> (v a, v a)
 splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
                     . G.fromListN (G.length vs)
                     . L.sortBy (compare `on` dimDistance dim (G.head vs))
