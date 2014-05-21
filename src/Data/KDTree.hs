@@ -55,11 +55,12 @@ instance (Real a, Floating a) => KDCompare (V3 a) where
 -- | define a kd tree
 --   planes are seperated by point + normal
 data KDTree v a = Node (Key a) a (KDTree v a) (KDTree v a)
-                | Leaf (v a)
+                | Leaf (Key a) (v a)
 
 
 -- | define the fix point variant of KDTree
-data KDTreeF v a f = NodeF (Key a) a f f | LeafF (v a)
+data KDTreeF v a f = NodeF (Key a) a f f 
+                   | LeafF (Key a) (v a)
   deriving (Functor)
 
 
@@ -67,17 +68,17 @@ data KDTreeF v a f = NodeF (Key a) a f f | LeafF (v a)
 type instance Base (KDTree v a) = KDTreeF v a
 
 instance Foldable (KDTree v a) where
-  project (Leaf a)       = LeafF a
+  project (Leaf d a)     = LeafF d a
   project (Node d p l r) = NodeF d p l r
 
 instance Unfoldable (KDTree v a) where
-  embed (LeafF a)       = Leaf a
+  embed (LeafF d a)     = Leaf d a
   embed (NodeF d p l r) = Node d p l r
 
 ---
 
 instance (NFData (v a), NFData a) => NFData (KDTree v a) where
-  rnf (Leaf vs)      = rnf vs
+  rnf (Leaf _ vs)    = rnf vs
   rnf (Node _ _ l r) = rnf l `seq` rnf r `seq` ()
 
 --------------------------------------------------
@@ -87,8 +88,11 @@ newtype BucketSize = BucketSize {unMinBucket :: Int}
 
 --------------------------------------------------
 
-empty :: (G.Vector v a) => KDTree v a
-empty = Leaf G.empty
+empty :: (KDCompare a, G.Vector v a) => KDTree v a
+empty = Leaf kFirst G.empty
+
+singleton :: (KDCompare a, G.Vector v a) => a -> KDTree v a
+singleton x = Leaf kFirst (G.singleton x)
 
 kdtree :: (KDCompare a, G.Vector v a) => BucketSize -> v a -> KDTree v a
 kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
@@ -96,7 +100,7 @@ kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 kdtreeF :: (KDCompare a, G.Vector v a)
           => BucketSize -> (Key a,v a) -> KDTreeF v a (Key a,v a)
 kdtreeF (BucketSize mb) = go
-  where go (k,fs) | G.length fs <= mb = LeafF (G.convert fs)
+  where go (k,fs) | G.length fs <= mb = LeafF k (G.convert fs)
                   | otherwise         = NodeF k (G.head r) (kSucc k,l) (kSucc k,r)
                     where (l,r) = splitBuckets k fs
 
@@ -120,7 +124,7 @@ nearestNeighbors :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
 nearestNeighbors q = cata (nearestNeighborsF q)
 
 nearestNeighborsF :: (KDCompare a, G.Vector v a) => a -> KDTreeF v a [a] -> [a]
-nearestNeighborsF q (LeafF vs)      = L.sortBy (compare `on` realDistance q) . G.toList $ vs
+nearestNeighborsF q (LeafF d vs)    = L.sortBy (compare `on` realDistance q) . G.toList $ vs
 nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 
   where x   = dimDistance d p q
