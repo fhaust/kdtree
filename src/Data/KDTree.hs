@@ -75,6 +75,9 @@ newtype Depth = Depth {unDepth :: Int}
 
 --------------------------------------------------
 
+empty :: (G.Vector v a) => KDTree v a
+empty = Leaf G.empty
+
 kdtree :: (G.Vector v a, a ~ V3 Double) => BucketSize -> v a -> KDTree v a
 kdtree mb vs = ana (kdtreeF mb) (0,vs)
 
@@ -82,17 +85,22 @@ kdtreeF :: (KDCompare a, G.Vector v a)
           => BucketSize -> (Depth,v a) -> KDTreeF v a (Depth,v a)
 kdtreeF (BucketSize mb) = go
   where go (d,fs) | G.length fs <= mb = LeafF (G.convert fs)
-                  | otherwise             = NodeF d (G.head r) (d+1,l) (d+1,r)
-
-                      where p     = G.head fs
-                            (l,r) = G.splitAt (G.length fs `quot` 2)
-                                  . G.fromListN (G.length fs)
-                                  . L.sortBy (compare `on` dimDistance d p)
-                                  $ G.toList fs
+                  | otherwise         = NodeF d (G.head r) (d+1,l) (d+1,r)
+                    where (l,r) = splitBuckets d fs
 
 {-# INLINE kdtreeF #-}
 
+splitBuckets :: (KDCompare a, G.Vector v a)
+             => Depth -> v a -> (v a, v a)
+splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
+                    . G.fromListN (G.length vs)
+                    . L.sortBy (compare `on` dimDistance dim (G.head vs))
+                    $ G.toList vs
+
+{-# INLINE splitBuckets #-}
+
 --------------------------------------------------
+
 
 -- | get all points in the tree, sorted by distance to the 'q'uery point
 -- | this is the 'bread and butter' function and should be quite fast
