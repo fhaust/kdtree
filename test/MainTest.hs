@@ -27,27 +27,27 @@ instance Arbitrary a => Arbitrary (V3 a) where
 instance Arbitrary a => Arbitrary (V.Vector a) where
   arbitrary = V.fromList . getNonEmpty <$> arbitrary
 
-instance Arbitrary KD.MinBucket where
-instance Arbitrary KD.MaxDepth where
+instance Arbitrary KD.BucketSize where
+  arbitrary = KD.BucketSize . getPositive <$> arbitrary
 
 --------------------------------------------------
 -- properties
 
 
-prop_nn :: (NonNegative Int,NonNegative Int,V3 Double,V.Vector (V3 Double)) -> Bool
-prop_nn (NonNegative b,NonNegative d,p,vs) = head treeSearch == linSearch
-  where treeSearch = KD.nearestNeighbor p . KD.kdtree (KD.MinBucket b) (KD.MaxDepth d) $ vs
+prop_nn :: (KD.BucketSize,V3 Double,V.Vector (V3 Double)) -> Bool
+prop_nn (b,p,vs) = head treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbor p . KD.kdtree b $ vs
         linSearch  = LS.nearestNeighbor vs p
 
-prop_nns :: (NonNegative Int,NonNegative Int,V3 Double,V.Vector (V3 Double)) -> Bool
-prop_nns (NonNegative b,NonNegative d,p,vs) = treeSearch == linSearch
-  where treeSearch = KD.nearestNeighbors p . KD.kdtree (KD.MinBucket b) (KD.MaxDepth d) $ vs
+prop_nns :: (KD.BucketSize,V3 Double,V.Vector (V3 Double)) -> Bool
+prop_nns (b,p,vs) = treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbors p . KD.kdtree b $ vs
         linSearch  = LS.nearestNeighbors vs p
 
 
-prop_nr :: (NonNegative Int,NonNegative Int,V3 Double,Double,V.Vector (V3 Double)) -> Bool
-prop_nr (NonNegative b,NonNegative d,p,r,vs) = treeSearch == linSearch
-  where treeSearch = KD.pointsAround r p . KD.kdtree (KD.MinBucket b) (KD.MaxDepth d) $ vs
+prop_nr :: (KD.BucketSize,V3 Double,Double,V.Vector (V3 Double)) -> Bool
+prop_nr (b,p,r,vs) = treeSearch == linSearch
+  where treeSearch = KD.pointsAround r p . KD.kdtree b $ vs
         linSearch  = LS.pointsAround vs r p
 
 --------------------------------------------------

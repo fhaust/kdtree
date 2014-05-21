@@ -28,7 +28,7 @@ main = do
 
 
   -- create kdtree from dataset
-  let kd  = force . KD.kdtree  64 8 $ vs
+  let kd  = force . KD.kdtree 64 $ vs
   let nrRadius = 0.1
 
 

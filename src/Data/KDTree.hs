@@ -17,7 +17,6 @@ import Data.Function
 import Linear
 
 import Control.DeepSeq
-import Control.Applicative
 
 import Data.Functor.Foldable
 
@@ -68,10 +67,7 @@ instance (NFData (v a), NFData a) => NFData (KDTree v a) where
 
 --------------------------------------------------
 
-newtype MinBucket = MinBucket {unMinBucket :: Int}
-  deriving (Eq,Ord,Show,Read,Num)
-
-newtype MaxDepth = MaxDepth {unMaxDepth :: Int}
+newtype BucketSize = BucketSize {unMinBucket :: Int}
   deriving (Eq,Ord,Show,Read,Num)
 
 newtype Depth = Depth {unDepth :: Int}
@@ -79,13 +75,13 @@ newtype Depth = Depth {unDepth :: Int}
 
 --------------------------------------------------
 
-kdtree :: (G.Vector v a, a ~ V3 Double) => MinBucket -> MaxDepth -> v a -> KDTree v a
-kdtree mb md vs = ana (kdtreeF mb md) (0,vs)
+kdtree :: (G.Vector v a, a ~ V3 Double) => BucketSize -> v a -> KDTree v a
+kdtree mb vs = ana (kdtreeF mb) (0,vs)
 
 kdtreeF :: (KDCompare a, G.Vector v a)
-          => MinBucket -> MaxDepth -> (Depth,v a) -> KDTreeF v a (Depth,v a)
-kdtreeF mb md = go
-  where go (d,fs) | maxDepth || minBucket = LeafF (G.convert fs)
+          => BucketSize -> (Depth,v a) -> KDTreeF v a (Depth,v a)
+kdtreeF (BucketSize mb) = go
+  where go (d,fs) | G.length fs <= mb = LeafF (G.convert fs)
                   | otherwise             = NodeF d (G.head r) (d+1,l) (d+1,r)
 
                       where p     = G.head fs
@@ -93,9 +89,6 @@ kdtreeF mb md = go
                                   . G.fromListN (G.length fs)
                                   . L.sortBy (compare `on` dimDistance d p)
                                   $ G.toList fs
-
-                            maxDepth  = unDepth d >= unMaxDepth md
-                            minBucket = G.length fs <= unMinBucket mb
 
 {-# INLINE kdtreeF #-}
 
