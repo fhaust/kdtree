@@ -37,18 +37,18 @@ instance Arbitrary KD.BucketSize where
 prop_nn :: (KD.BucketSize,V3 Double,V.Vector (V3 Double)) -> Bool
 prop_nn (b,p,vs) = head treeSearch == linSearch
   where treeSearch = KD.nearestNeighbor p . KD.kdtree b $ vs
-        linSearch  = LS.nearestNeighbor vs p
+        linSearch  = LS.nearestNeighbor p vs
 
 prop_nns :: (KD.BucketSize,V3 Double,V.Vector (V3 Double)) -> Bool
 prop_nns (b,p,vs) = treeSearch == linSearch
   where treeSearch = KD.nearestNeighbors p . KD.kdtree b $ vs
-        linSearch  = LS.nearestNeighbors vs p
+        linSearch  = LS.nearestNeighbors p vs
 
 
 prop_nr :: (KD.BucketSize,V3 Double,Double,V.Vector (V3 Double)) -> Bool
 prop_nr (b,p,r,vs) = treeSearch == linSearch
   where treeSearch = KD.pointsAround r p . KD.kdtree b $ vs
-        linSearch  = LS.pointsAround vs r p
+        linSearch  = LS.pointsAround r p vs
 
 --------------------------------------------------
 -- main function / test generator
