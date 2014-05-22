@@ -34,6 +34,7 @@ class KDCompare a where
 
   dimDistance  :: Dim a -> a -> a -> Double
   realDistance :: a -> a -> Double
+  dimCompare   :: Dim a -> a -> a -> Ordering
 
 
 --------------------------------------------------
@@ -45,16 +46,24 @@ instance (Real a, Floating a) => KDCompare (V3 a) where
   kSucc k = case k of V3X -> V3Y; V3Y -> V3Z; V3Z -> V3X
   kFirst = V3X
 
-  dimDistance k (V3 ax ay az) (V3 bx by bz) = realToFrac $ case k of
-                                                V3X -> ax - bx
-                                                V3Y -> ay - by
-                                                V3Z -> az - bz
+  dimDistance k (V3 qx qy qz) (V3 x y z) = realToFrac $ case k of
+                                                V3X -> x - qx
+                                                V3Y -> y - qy
+                                                V3Z -> z - qz
   realDistance a b = realToFrac $ distance a b
+
+  dimCompare k (V3 qx qy qz) (V3 x y z) = case k of
+                                                V3X -> compare x qx
+                                                V3Y -> compare y qy
+                                                V3Z -> compare z qz
+
+
 
   {-# INLINABLE kSucc #-}
   {-# INLINABLE kFirst #-}
   {-# INLINABLE dimDistance #-}
   {-# INLINABLE realDistance #-}
+  {-# INLINABLE dimCompare #-}
 
 --------------------------------------------------
 
@@ -120,7 +129,7 @@ kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 kdtreeF :: (KDCompare a, G.Vector v a)
           => BucketSize -> (Dim a,v a) -> KDTreeF v a (Dim a,v a)
 kdtreeF (BucketSize mb) = go
-  where go (k,fs) | G.length fs <= mb = LeafF k (G.convert fs)
+  where go (k,fs) | G.length fs <= mb = LeafF k fs
                   | otherwise         = NodeF k (G.head r) (kSucc k,l) (kSucc k,r)
                     where (l,r) = splitBuckets k fs
 
@@ -184,7 +193,6 @@ pointsAround r q = takeWhile (\p -> realDistance q p < abs r) . nearestNeighbors
 
 {-# INLINABLE pointsAround #-}
 --------------------------------------------------
-
 
 
 
