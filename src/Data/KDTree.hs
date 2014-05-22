@@ -12,6 +12,7 @@ module Data.KDTree where
 import qualified Data.Vector.Generic  as G
 import qualified Data.List            as L
 
+
 import Data.Function
 
 import Linear
@@ -36,16 +37,15 @@ class KDCompare a where
 
 instance (Real a, Floating a) => KDCompare (V3 a) where
 
-  newtype Key (V3 a) = V3K Int deriving (Show, Num)
+  data Key (V3 a) = V3X | V3Y | V3Z deriving (Show, Enum)
 
-  kSucc  = (+1)
-  kFirst = V3K 0
+  kSucc k = case k of V3X -> V3Y; V3Y -> V3Z; V3Z -> V3X
+  kFirst = V3X
 
-  dimDistance (V3K k) (V3 ax ay az) (V3 bx by bz) = case k `mod` 3 of
-                                                0 -> realToFrac $ ax - bx
-                                                1 -> realToFrac $ ay - by
-                                                2 -> realToFrac $ az - bz
-                                                _ -> error ""
+  dimDistance k (V3 ax ay az) (V3 bx by bz) = realToFrac $ case k of
+                                                V3X -> ax - bx
+                                                V3Y -> ay - by
+                                                V3Z -> az - bz
   realDistance a b = realToFrac $ distance a b
 
 
@@ -59,7 +59,7 @@ data KDTree v a = Node (Key a) a (KDTree v a) (KDTree v a)
 
 
 -- | define the fix point variant of KDTree
-data KDTreeF v a f = NodeF (Key a) a f f 
+data KDTreeF v a f = NodeF (Key a) a f f
                    | LeafF (Key a) (v a)
   deriving (Functor)
 
@@ -94,6 +94,17 @@ empty = Leaf kFirst G.empty
 singleton :: (KDCompare a, G.Vector v a) => a -> KDTree v a
 singleton x = Leaf kFirst (G.singleton x)
 
+--------------------------------------------------
+
+-- FIXME split leaf
+
+insert :: (KDCompare a, G.Vector v a) => BucketSize -> a -> KDTree v a -> KDTree v a
+insert _  x (Leaf d xs)    = Leaf d (x `G.cons` xs)
+insert mb x (Node d p l r) | dimDistance d p x < 0 = Node d p (insert mb x l) r
+                           | otherwise             = Node d p l (insert mb x r)
+
+--------------------------------------------------
+
 kdtree :: (KDCompare a, G.Vector v a) => BucketSize -> v a -> KDTree v a
 kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 
@@ -124,7 +135,7 @@ nearestNeighbors :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
 nearestNeighbors q = cata (nearestNeighborsF q)
 
 nearestNeighborsF :: (KDCompare a, G.Vector v a) => a -> KDTreeF v a [a] -> [a]
-nearestNeighborsF q (LeafF d vs)    = L.sortBy (compare `on` realDistance q) . G.toList $ vs
+nearestNeighborsF q (LeafF _ vs)    = L.sortBy (compare `on` realDistance q) . G.toList $ vs
 nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 
   where x   = dimDistance d p q
