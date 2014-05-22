@@ -6,6 +6,8 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
+{-# LANGUAGE StandaloneDeriving #-}
+
 module Data.KDTree where
 
 
@@ -38,7 +40,7 @@ class KDCompare a where
 
 instance (Real a, Floating a) => KDCompare (V3 a) where
 
-  data Key (V3 a) = V3X | V3Y | V3Z deriving (Show, Enum)
+  data Key (V3 a) = V3X | V3Y | V3Z deriving (Show,Read,Eq,Enum)
 
   kSucc k = case k of V3X -> V3Y; V3Y -> V3Z; V3Z -> V3X
   kFirst = V3X
@@ -56,11 +58,15 @@ instance (Real a, Floating a) => KDCompare (V3 a) where
 
 --------------------------------------------------
 
+
 -- | define a kd tree
 --   planes are seperated by point + normal
 data KDTree v a = Node (Key a) a (KDTree v a) (KDTree v a)
                 | Leaf (Key a) (v a)
 
+deriving instance (Show (v a), Show (Key a), Show a) => Show (KDTree v a)
+deriving instance (Read (v a), Read (Key a), Read a) => Read (KDTree v a)
+deriving instance (Eq (v a), Eq (Key a), Eq a) => Eq (KDTree v a)
 
 -- | define the fix point variant of KDTree
 data KDTreeF v a f = NodeF (Key a) a f f
@@ -87,7 +93,7 @@ instance (NFData (v a), NFData a) => NFData (KDTree v a) where
 
 --------------------------------------------------
 
-newtype BucketSize = BucketSize {unMinBucket :: Int}
+newtype BucketSize = BucketSize {unMB :: Int}
   deriving (Eq,Ord,Show,Read,Num)
 
 --------------------------------------------------
@@ -98,14 +104,11 @@ empty = Leaf kFirst G.empty
 singleton :: (KDCompare a, G.Vector v a) => a -> KDTree v a
 singleton x = Leaf kFirst (G.singleton x)
 
+toVecF :: (G.Vector v a) => KDTreeF v a (Key a, v a) -> (Key a, v a)
+toVecF (LeafF d xs)            = (d,xs)
+toVecF (NodeF d _ (_,l) (_,r)) = (d,l G.++ r)
+
 --------------------------------------------------
-
--- FIXME split leaf
-
-insert :: (KDCompare a, G.Vector v a) => BucketSize -> a -> KDTree v a -> KDTree v a
-insert _  x (Leaf d xs)    = Leaf d (x `G.cons` xs)
-insert mb x (Node d p l r) | dimDistance d p x < 0 = Node d p (insert mb x l) r
-                           | otherwise             = Node d p l (insert mb x r)
 
 --------------------------------------------------
 
@@ -181,4 +184,7 @@ pointsAround r q = takeWhile (\p -> realDistance q p < abs r) . nearestNeighbors
 
 {-# INLINABLE pointsAround #-}
 --------------------------------------------------
+
+
+
 

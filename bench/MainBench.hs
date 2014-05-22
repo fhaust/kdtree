@@ -62,16 +62,6 @@ main = do
      --  ]
      ]
 
--- specialize all calls so ghc can remove the implicit type class
--- dictionary passing ...
-
-{-# SPECIALIZE KD.nearestNeighbor
-                  :: V3 Double -> KD.KDTree V.Vector (V3 Double) -> [V3 Double] #-}
-{-# SPECIALIZE KD.nearestNeighbors
-                  :: V3 Double -> KD.KDTree V.Vector (V3 Double) -> [V3 Double] #-}
-{-# SPECIALIZE KD.pointsAround
-                  :: Double -> V3 Double -> KD.KDTree V.Vector (V3 Double) -> [V3 Double] #-}
-
 instance NFData a => NFData (V3 a) where
     rnf (V3 x y z) = x `seq` y `seq` z `seq` ()
 
