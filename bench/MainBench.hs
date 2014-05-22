@@ -61,6 +61,15 @@ main = do
      --  , bench "kdtree_full_nr" $ nf (KD.pointsAround 1 q . KD.kdtree 64 8) vs
      --  ]
      ]
+
+{-# SPECIALIZE KD.nearestNeighbor
+                  :: V3 Double -> KD.KDTree V.Vector (V3 Double) -> [V3 Double]
+  #-}
+{-# SPECIALIZE KD.nearestNeighbors
+                  :: V3 Double -> KD.KDTree V.Vector (V3 Double) -> [V3 Double]
+  #-}
+{-# SPECIALIZE KD.pointsAround :: Double -> V3 Double -> KD.KDTree V.Vector (V3 Double) -> [V3 Double] #-}
+
 uncurry2 :: (a -> b -> c -> d) -> (a, b, c) -> d
 uncurry2 f (a,b,c) = f a b c
 

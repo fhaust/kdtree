@@ -9,6 +9,7 @@
 module Data.KDTree where
 
 
+
 import qualified Data.Vector.Generic  as G
 import qualified Data.List            as L
 
@@ -48,7 +49,10 @@ instance (Real a, Floating a) => KDCompare (V3 a) where
                                                 V3Z -> az - bz
   realDistance a b = realToFrac $ distance a b
 
-
+  {-# INLINABLE kSucc #-}
+  {-# INLINABLE kFirst #-}
+  {-# INLINABLE dimDistance #-}
+  {-# INLINABLE realDistance #-}
 
 --------------------------------------------------
 
@@ -108,6 +112,8 @@ insert mb x (Node d p l r) | dimDistance d p x < 0 = Node d p (insert mb x l) r
 kdtree :: (KDCompare a, G.Vector v a) => BucketSize -> v a -> KDTree v a
 kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 
+{-# INLINABLE kdtree #-}
+
 kdtreeF :: (KDCompare a, G.Vector v a)
           => BucketSize -> (Key a,v a) -> KDTreeF v a (Key a,v a)
 kdtreeF (BucketSize mb) = go
@@ -115,7 +121,7 @@ kdtreeF (BucketSize mb) = go
                   | otherwise         = NodeF k (G.head r) (kSucc k,l) (kSucc k,r)
                     where (l,r) = splitBuckets k fs
 
-{-# INLINE kdtreeF #-}
+{-# INLINABLE kdtreeF #-}
 
 splitBuckets :: (KDCompare a, G.Vector v a)
              => Key a -> v a -> (v a, v a)
@@ -124,7 +130,7 @@ splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
                     . L.sortBy (compare `on` dimDistance dim (G.head vs))
                     $ G.toList vs
 
-{-# INLINE splitBuckets #-}
+{-# INLINABLE splitBuckets #-}
 
 --------------------------------------------------
 
@@ -134,6 +140,8 @@ splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
 nearestNeighbors :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
 nearestNeighbors q = cata (nearestNeighborsF q)
 
+{-# INLINABLE nearestNeighbors #-}
+
 nearestNeighborsF :: (KDCompare a, G.Vector v a) => a -> KDTreeF v a [a] -> [a]
 nearestNeighborsF q (LeafF _ vs)    = L.sortBy (compare `on` realDistance q) . G.toList $ vs
 nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
@@ -141,10 +149,7 @@ nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
   where x   = dimDistance d p q
         go  = mergeBuckets x q
 
-        {-# INLINE go #-}
-        {-# INLINE x  #-}
-
-{-# INLINE nearestNeighborsF #-}
+{-# INLINABLE nearestNeighborsF #-}
 
 -- recursively merge the two children
 -- the second line makes sure that points in the
@@ -158,7 +163,7 @@ mergeBuckets d q = go
         go (a:as) (b:bs) | rdq a < rdq b = a : go as (b:bs)
                          | otherwise     = b : go (a:as) bs
 
-{-# INLINE mergeBuckets #-}
+{-# INLINABLE mergeBuckets #-}
 
 --------------------------------------------------
 
@@ -166,11 +171,14 @@ mergeBuckets d q = go
 nearestNeighbor :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
 nearestNeighbor q = take 1 . nearestNeighbors q
 
+{-# INLINABLE nearestNeighbor #-}
+
 ----------------------------------------------------
 
 -- | return the points around a 'q'uery point up to radius 'r'
 pointsAround :: (KDCompare a, G.Vector v a) => Double -> a -> KDTree v a -> [a]
 pointsAround r q = takeWhile (\p -> realDistance q p < abs r) . nearestNeighbors q
 
+{-# INLINABLE pointsAround #-}
 --------------------------------------------------
 
