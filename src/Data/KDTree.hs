@@ -27,12 +27,12 @@ import Data.Functor.Foldable
 --------------------------------------------------
 
 class KDCompare a where
-  data Key a :: *
+  data Dim a :: *
 
-  kSucc :: Key a -> Key a
-  kFirst :: Key a
+  kSucc :: Dim a -> Dim a
+  kFirst :: Dim a
 
-  dimDistance  :: Key a -> a -> a -> Double
+  dimDistance  :: Dim a -> a -> a -> Double
   realDistance :: a -> a -> Double
 
 
@@ -40,7 +40,7 @@ class KDCompare a where
 
 instance (Real a, Floating a) => KDCompare (V3 a) where
 
-  data Key (V3 a) = V3X | V3Y | V3Z deriving (Show,Read,Eq,Enum)
+  data Dim (V3 a) = V3X | V3Y | V3Z deriving (Show,Read,Eq,Enum)
 
   kSucc k = case k of V3X -> V3Y; V3Y -> V3Z; V3Z -> V3X
   kFirst = V3X
@@ -61,16 +61,16 @@ instance (Real a, Floating a) => KDCompare (V3 a) where
 
 -- | define a kd tree
 --   planes are seperated by point + normal
-data KDTree v a = Node (Key a) a (KDTree v a) (KDTree v a)
-                | Leaf (Key a) (v a)
+data KDTree v a = Node (Dim a) a (KDTree v a) (KDTree v a)
+                | Leaf (Dim a) (v a)
 
-deriving instance (Show (v a), Show (Key a), Show a) => Show (KDTree v a)
-deriving instance (Read (v a), Read (Key a), Read a) => Read (KDTree v a)
-deriving instance (Eq (v a), Eq (Key a), Eq a) => Eq (KDTree v a)
+deriving instance (Show (v a), Show (Dim a), Show a) => Show (KDTree v a)
+deriving instance (Read (v a), Read (Dim a), Read a) => Read (KDTree v a)
+deriving instance (Eq (v a), Eq (Dim a), Eq a) => Eq (KDTree v a)
 
 -- | define the fix point variant of KDTree
-data KDTreeF v a f = NodeF (Key a) a f f
-                   | LeafF (Key a) (v a)
+data KDTreeF v a f = NodeF (Dim a) a f f
+                   | LeafF (Dim a) (v a)
   deriving (Functor)
 
 
@@ -104,7 +104,7 @@ empty = Leaf kFirst G.empty
 singleton :: (KDCompare a, G.Vector v a) => a -> KDTree v a
 singleton x = Leaf kFirst (G.singleton x)
 
-toVecF :: (G.Vector v a) => KDTreeF v a (Key a, v a) -> (Key a, v a)
+toVecF :: (G.Vector v a) => KDTreeF v a (Dim a, v a) -> (Dim a, v a)
 toVecF (LeafF d xs)            = (d,xs)
 toVecF (NodeF d _ (_,l) (_,r)) = (d,l G.++ r)
 
@@ -118,7 +118,7 @@ kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 {-# INLINABLE kdtree #-}
 
 kdtreeF :: (KDCompare a, G.Vector v a)
-          => BucketSize -> (Key a,v a) -> KDTreeF v a (Key a,v a)
+          => BucketSize -> (Dim a,v a) -> KDTreeF v a (Dim a,v a)
 kdtreeF (BucketSize mb) = go
   where go (k,fs) | G.length fs <= mb = LeafF k (G.convert fs)
                   | otherwise         = NodeF k (G.head r) (kSucc k,l) (kSucc k,r)
@@ -127,7 +127,7 @@ kdtreeF (BucketSize mb) = go
 {-# INLINABLE kdtreeF #-}
 
 splitBuckets :: (KDCompare a, G.Vector v a)
-             => Key a -> v a -> (v a, v a)
+             => Dim a -> v a -> (v a, v a)
 splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
                     . G.fromListN (G.length vs)
                     . L.sortBy (compare `on` dimDistance dim (G.head vs))
