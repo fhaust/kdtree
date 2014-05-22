@@ -113,9 +113,12 @@ empty = Leaf kFirst G.empty
 singleton :: (KDCompare a, G.Vector v a) => a -> KDTree v a
 singleton x = Leaf kFirst (G.singleton x)
 
-toVecF :: (G.Vector v a) => KDTreeF v a (Dim a, v a) -> (Dim a, v a)
-toVecF (LeafF d xs)            = (d,xs)
-toVecF (NodeF d _ (_,l) (_,r)) = (d,l G.++ r)
+toVec :: (G.Vector v a) => KDTree v a -> v a
+toVec = cata toVecF
+
+toVecF :: (G.Vector v a) => KDTreeF v a (v a) -> (v a)
+toVecF (LeafF _ xs)    = xs
+toVecF (NodeF _ _ l r) = l G.++ r
 
 --------------------------------------------------
 
@@ -195,4 +198,30 @@ pointsAround r q = takeWhile (\p -> realDistance q p < abs r) . nearestNeighbors
 --------------------------------------------------
 
 
+partition :: (KDCompare a, G.Vector v a, Eq (Dim a))
+          => Dim a -> Ordering -> a -> KDTree v a -> (KDTree v a, KDTree v a)
+partition dim ord q = go
+  where go (Leaf d vs) = (Leaf d valid, Leaf d invalid)
+                           where predicate p = dimCompare dim q p == ord
+                                 (valid,invalid) = G.unstablePartition predicate vs
+        go (Node d p l r) | dim /= d  = (Node d p lval rval, Node d p linv rinv)
+                          | otherwise = case dimCompare dim q p of
+                                          GT | ord == GT -> ( Node d p l rval
+                                                            , Node d p empty rinv
+                                                            )
+                                          LT | ord == LT -> ( Node d p lval r
+                                                            , Node d p linv empty
+                                                            )
+                                          _              -> ( Node d p lval rval
+                                                            , Node d p linv rinv
+                                                            )
+          where (lval,linv) = go l
+                (rval,rinv) = go r
 
+select :: (KDCompare a, G.Vector v a, Eq (Dim a))
+       => Dim a -> Ordering -> a -> KDTree v a -> KDTree v a
+select dim ord q = fst . partition dim ord q
+
+delete :: (KDCompare a, G.Vector v a, Eq (Dim a))
+       => Dim a -> Ordering -> a -> KDTree v a -> KDTree v a
+delete dim ord q = snd . partition dim ord q
