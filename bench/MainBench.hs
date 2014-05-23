@@ -15,6 +15,10 @@ import System.Random
 
 import Linear
 
+
+type V3D = V3 Double
+type VV3D = V.Vector V3D
+
 main :: IO ()
 main = do
 
@@ -30,6 +34,9 @@ main = do
   -- create kdtree from dataset
   let kd  = force . KD.kdtree 64 $ vs
   let nrRadius = 0.1
+
+  let dim = KD.V3X
+  let ord = GT
 
 
   -- run benchmarks
@@ -48,19 +55,25 @@ main = do
        [ bench "linear_nr"  $ nf (Lin.pointsAround nrRadius q) vs
        , bench "kdtree_nr"  $ nf (KD.pointsAround nrRadius q) kd
        ]
-     --, bgroup "full_nn"
-     --  [ bench "linear_full_nn"  $ nf (Lin.nearestNeighbor vs) q
-     --  , bench "kdtree_full_nn"  $ nf (KD.nearestNeighbor q . KD.kdtree 64 8) vs
-     --  ]
-     --, bgroup "full_nn5"
-     --  [ bench "linear_full_nn5"  $ nf (L.take 5 . flip Lin.nearestNeighbors q) vs
-     --  , bench "kdtree_full_nn5"  $ nf (L.take 5 . KD.nearestNeighbors q . KD.kdtree 64 8) vs
-     --  ]
-     --, bgroup "full_nr"
-     --  [ bench "linear_full_nr" $ nf (uncurry2 Lin.pointsAround) (vs,1,q)
-     --  , bench "kdtree_full_nr" $ nf (KD.pointsAround 1 q . KD.kdtree 64 8) vs
-     --  ]
+     , bgroup "partition"
+       [ bench "linear" $ nf (V.partition ((== ord) . KD.dimCompare dim q)) vs
+       , bench "kdtree" $ nf (KD.partition dim ord q) kd
+       ]
+     , bgroup "select"
+       [ bench "linear" $ nf (V.filter ((== ord) . KD.dimCompare dim q)) vs
+       , bench "kdtree" $ nf (KD.select dim ord q) kd
+       ]
+     , bgroup "delete"
+       [ bench "linear" $ nf (V.filter (not . (== ord) . KD.dimCompare dim q)) vs
+       , bench "kdtree" $ nf (KD.delete dim ord q) kd
+       ]
      ]
+
+
+{-# SPECIALIZE KD.nearestNeighbor  :: V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
+{-# SPECIALIZE KD.nearestNeighbors :: V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
+{-# SPECIALIZE KD.pointsAround     :: Double -> V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
+
 
 instance NFData a => NFData (V3 a) where
     rnf (V3 x y z) = x `seq` y `seq` z `seq` ()

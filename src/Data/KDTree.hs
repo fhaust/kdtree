@@ -120,6 +120,14 @@ toVecF :: (G.Vector v a) => KDTreeF v a (v a) -> (v a)
 toVecF (LeafF _ xs)    = xs
 toVecF (NodeF _ _ l r) = l G.++ r
 
+
+toList :: (G.Vector v a) => KDTree v a -> [a]
+toList = cata toListF
+
+toListF :: (G.Vector v a) => KDTreeF v a [a] -> [a]
+toListF (LeafF _ xs)    = G.toList xs
+toListF (NodeF _ _ l r) = l ++ r
+
 --------------------------------------------------
 
 --------------------------------------------------
@@ -202,15 +210,15 @@ partition :: (KDCompare a, G.Vector v a, Eq (Dim a))
           => Dim a -> Ordering -> a -> KDTree v a -> (KDTree v a, KDTree v a)
 partition dim ord q = go
   where go (Leaf d vs) = (Leaf d valid, Leaf d invalid)
-                           where predicate p = dimCompare dim q p == ord
+                           where predicate       = (== ord) . dimCompare dim q
                                  (valid,invalid) = G.unstablePartition predicate vs
         go (Node d p l r) | dim /= d  = (Node d p lval rval, Node d p linv rinv)
                           | otherwise = case dimCompare dim q p of
-                                          GT | ord == GT -> ( Node d p l rval
-                                                            , Node d p empty rinv
-                                                            )
-                                          LT | ord == LT -> ( Node d p lval r
+                                          GT | ord == GT -> ( Node d p lval r
                                                             , Node d p linv empty
+                                                            )
+                                          LT | ord == LT -> ( Node d p l rval
+                                                            , Node d p empty rinv
                                                             )
                                           _              -> ( Node d p lval rval
                                                             , Node d p linv rinv
@@ -218,10 +226,18 @@ partition dim ord q = go
           where (lval,linv) = go l
                 (rval,rinv) = go r
 
+{-# INLINABLE partition #-}
+
 select :: (KDCompare a, G.Vector v a, Eq (Dim a))
        => Dim a -> Ordering -> a -> KDTree v a -> KDTree v a
 select dim ord q = fst . partition dim ord q
 
+{-# INLINABLE select #-}
+
 delete :: (KDCompare a, G.Vector v a, Eq (Dim a))
        => Dim a -> Ordering -> a -> KDTree v a -> KDTree v a
 delete dim ord q = snd . partition dim ord q
+
+{-# INLINABLE delete #-}
+
+
