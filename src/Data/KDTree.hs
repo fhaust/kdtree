@@ -224,22 +224,34 @@ partition dim ord q = go
                            where predicate       = (== ord) . flip (dimCompare dim) q
                                  (valid,invalid) = G.unstablePartition predicate vs
         go (Node d p l r) | dim /= d  = (Node d p lval rval, Node d p linv rinv)
-                          | otherwise = case dimCompare dim q p of
-                                          GT | ord == GT -> ( Node d p empty rval
-                                                            , Node d p l     rinv
-                                                            )
-                                          GT | ord == LT -> ( Node d p l     rval
-                                                            , Node d p empty rinv
-                                                            )
-                                          LT | ord == GT -> ( Node d p lval r
-                                                            , Node d p linv empty
-                                                            )
-                                             | ord == LT -> ( Node d p lval empty
-                                                            , Node d p linv r
-                                                            )
-                                          _              -> ( Node d p lval rval
-                                                            , Node d p linv rinv
-                                                            )
+                          | ord == GT = case dimCompare dim q p of
+                                          LT -> ( Node d p lval r
+                                                , Node d p linv empty
+                                                )
+                                          GT -> ( Node d p empty rval
+                                                , Node d p l     rinv
+                                                )
+                                          EQ -> ( Node d p empty r
+                                                , Node d p l     empty
+                                                )
+                          | ord == LT = case dimCompare dim q p of
+                                          LT -> ( Node d p lval empty
+                                                , Node d p linv r
+                                                )
+                                          GT -> ( Node d p l     rval
+                                                , Node d p empty rinv
+                                                )
+                                          EQ -> ( Node d p l     empty
+                                                , Node d p empty r
+                                                )
+                          | ord == EQ = case dimCompare dim q p of
+                                          LT -> ( Node d p lval empty
+                                                , Node d p linv r
+                                                )
+                                          _  -> ( Node d p empty rval
+                                                , Node d p l     rinv
+                                                )
+
           where (lval,linv) = go l
                 (rval,rinv) = go r
 
