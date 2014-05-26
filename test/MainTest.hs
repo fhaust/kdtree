@@ -43,18 +43,36 @@ instance Arbitrary (KD.Dim V3D) where
   arbitrary = elements [KD.V3X, KD.V3Y, KD.V3Z]
 
 --------------------------------------------------
--- properties
+-- tree building properties
+prop_verify :: (KD.BucketSize, VV3D) -> Bool
+prop_verify (b,vs) = KD.verify . KD.kdtree b $ vs
 
+--------------------------------------------------
+-- nearest neighbor properties
+
+
+prop_nns_leaf :: (V3 Double,VV3D) -> Bool
+prop_nns_leaf (p,vs) = treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbors p . KD.kdtree 1000000 $ vs
+        linSearch  = LS.nearestNeighbors p vs
+
+prop_nns_node :: (V3 Double,VV3D) -> Bool
+prop_nns_node (p,vs) = treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbors p . KD.kdtree 1 $ vs
+        linSearch  = LS.nearestNeighbors p vs
+
+--------------------------------------------------
+
+prop_nns :: (KD.BucketSize,V3 Double,VV3D) -> Bool
+prop_nns (b,p,vs) = treeSearch == linSearch
+  where treeSearch = KD.nearestNeighbors p . KD.kdtree b $ vs
+        linSearch  = LS.nearestNeighbors p vs
 
 prop_nn :: (KD.BucketSize,V3 Double,VV3D) -> Bool
 prop_nn (b,p,vs) = head treeSearch == linSearch
   where treeSearch = KD.nearestNeighbor p . KD.kdtree b $ vs
         linSearch  = LS.nearestNeighbor p vs
 
-prop_nns :: (KD.BucketSize,V3 Double,VV3D) -> Bool
-prop_nns (b,p,vs) = treeSearch == linSearch
-  where treeSearch = KD.nearestNeighbors p . KD.kdtree b $ vs
-        linSearch  = LS.nearestNeighbors p vs
 
 
 prop_nr :: (KD.BucketSize,V3 Double,Double,VV3D) -> Bool
@@ -65,29 +83,38 @@ prop_nr (b,p,r,vs) = treeSearch == linSearch
 --------------------------------------------------
 
 prop_partition :: (KD.Dim V3D, Ordering, KD.BucketSize, V3D, VV3D) -> Bool
-prop_partition (dim,ord,bs,q,vs) = treeSearch == linSearch
-  where treeSearch = both (L.sort . KD.toList)
+prop_partition (dim,ord,bs,q,vs) = (L.null $ tsA L.\\ lsA) && (L.null $ tsB L.\\ lsB)
+  where (tsA, tsB) = both KD.toList
                    . KD.partition dim ord q
                    $ KD.kdtree bs vs
-        linSearch  = both (L.sort . V.toList)
-                   $ V.unstablePartition ((== ord) . KD.dimCompare dim q) vs
+        (lsA, lsB) = both V.toList . LS.partition dim ord q $ vs
         both f = f *** f
 
+prop_partition_leaf :: (KD.Dim V3D, Ordering, V3D, VV3D) -> Bool
+prop_partition_leaf (dim,ord,q,vs) = prop_partition (dim,ord,1000000,q,vs)
+
+prop_partition_node :: (KD.Dim V3D, Ordering, V3D, VV3D) -> Bool
+prop_partition_node (dim,ord,q,vs) = prop_partition (dim,ord,1,q,vs)
+
+--------------------------------------------------
+
 prop_select :: (KD.Dim V3D, Ordering, KD.BucketSize, V3D, VV3D) -> Bool
-prop_select (dim,ord,bs,q,vs) = treeSearch == linSearch
-  where treeSearch = L.sort . KD.toList
+prop_select (dim,ord,bs,q,vs) = L.null $ treeSearch L.\\ linSearch
+  where treeSearch = KD.toList
                    . KD.select dim ord q
                    $ KD.kdtree bs vs
-        linSearch  = L.sort . V.toList 
-                   $ V.filter ((== ord) . KD.dimCompare dim q) vs
+        linSearch  = V.toList . LS.select dim ord q $ vs
 
 prop_delete :: (KD.Dim V3D, Ordering, KD.BucketSize, V3D, VV3D) -> Bool
-prop_delete (dim,ord,bs,q,vs) = treeSearch == linSearch
-  where treeSearch = L.sort . KD.toList
+prop_delete (dim,ord,bs,q,vs) = L.null $ treeSearch L.\\ linSearch
+  where treeSearch = KD.toList
                    . KD.delete dim ord q
                    $ KD.kdtree bs vs
-        linSearch  = L.sort . V.toList 
-                   $ V.filter (not . (== ord) . KD.dimCompare dim q) vs
+        linSearch  = V.toList . LS.delete dim ord q $ vs
+
+
+--------------------------------------------------
+
 
 
 --------------------------------------------------

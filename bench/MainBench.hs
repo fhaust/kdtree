@@ -28,7 +28,8 @@ main = do
 
   -- get a query point that exists in the set
   --let q = vs V.! (V.length vs `quot` 2)
-  let q = V3 0 0 0
+  let q  = V3 0 0 0
+      q2 = V3 0.9 0.9 0.9
 
 
   -- create kdtree from dataset
@@ -56,16 +57,16 @@ main = do
        , bench "kdtree_nr"  $ nf (KD.pointsAround nrRadius q) kd
        ]
      , bgroup "partition"
-       [ bench "linear" $ nf (V.partition ((== ord) . KD.dimCompare dim q)) vs
-       , bench "kdtree" $ nf (KD.partition dim ord q) kd
+       [ bench "linear" $ nf (V.partition ((== ord) . KD.dimCompare dim q2)) vs
+       , bench "kdtree" $ nf (KD.partition dim ord q2) kd
        ]
      , bgroup "select"
-       [ bench "linear" $ nf (V.filter ((== ord) . KD.dimCompare dim q)) vs
-       , bench "kdtree" $ nf (KD.select dim ord q) kd
+       [ bench "linear" $ nf (V.filter ((== ord) . KD.dimCompare dim q2)) vs
+       , bench "kdtree" $ nf (KD.select dim ord q2) kd
        ]
      , bgroup "delete"
-       [ bench "linear" $ nf (V.filter (not . (== ord) . KD.dimCompare dim q)) vs
-       , bench "kdtree" $ nf (KD.delete dim ord q) kd
+       [ bench "linear" $ nf (V.filter (not . (== ord) . KD.dimCompare dim q2)) vs
+       , bench "kdtree" $ nf (KD.delete dim ord q2) kd
        ]
      ]
 

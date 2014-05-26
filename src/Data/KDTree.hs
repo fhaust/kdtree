@@ -32,9 +32,9 @@ class KDCompare a where
   kSucc :: Dim a -> Dim a
   kFirst :: Dim a
 
-  dimDistance  :: Dim a -> a -> a -> Double
-  realDistance :: a -> a -> Double
-  dimCompare   :: Dim a -> a -> a -> Ordering
+  dimDistance :: Dim a -> a -> a -> Double
+  realSqDist  :: a -> a -> Double
+  dimCompare  :: Dim a -> a -> a -> Ordering
 
 
 --------------------------------------------------
@@ -46,23 +46,23 @@ instance (Real a, Floating a) => KDCompare (V3 a) where
   kSucc k = case k of V3X -> V3Y; V3Y -> V3Z; V3Z -> V3X
   kFirst = V3X
 
-  dimDistance k (V3 qx qy qz) (V3 x y z) = realToFrac $ case k of
-                                                V3X -> x - qx
-                                                V3Y -> y - qy
-                                                V3Z -> z - qz
-  realDistance a b = realToFrac $ distance a b
+  dimDistance k (V3 ax ay az) (V3 bx by bz) = realToFrac $ case k of
+                                                V3X -> ax - bx
+                                                V3Y -> ay - by
+                                                V3Z -> az - bz
+  realSqDist a b = realToFrac $ qd a b
 
-  dimCompare k (V3 qx qy qz) (V3 x y z) = case k of
-                                                V3X -> compare x qx
-                                                V3Y -> compare y qy
-                                                V3Z -> compare z qz
+  dimCompare k (V3 ax ay az) (V3 bx by bz) = case k of
+                                                V3X -> compare ax bx
+                                                V3Y -> compare ay by
+                                                V3Z -> compare az bz
 
 
 
   {-# INLINABLE kSucc #-}
   {-# INLINABLE kFirst #-}
   {-# INLINABLE dimDistance #-}
-  {-# INLINABLE realDistance #-}
+  {-# INLINABLE realSqDist #-}
   {-# INLINABLE dimCompare #-}
 
 --------------------------------------------------
@@ -116,7 +116,7 @@ singleton x = Leaf kFirst (G.singleton x)
 toVec :: (G.Vector v a) => KDTree v a -> v a
 toVec = cata toVecF
 
-toVecF :: (G.Vector v a) => KDTreeF v a (v a) -> (v a)
+toVecF :: (G.Vector v a) => KDTreeF v a (v a) -> v a
 toVecF (LeafF _ xs)    = xs
 toVecF (NodeF _ _ l r) = l G.++ r
 
@@ -150,10 +150,21 @@ splitBuckets :: (KDCompare a, G.Vector v a)
              => Dim a -> v a -> (v a, v a)
 splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
                     . G.fromListN (G.length vs)
-                    . L.sortBy (compare `on` dimDistance dim (G.head vs))
+                    . L.sortBy (dimCompare dim)
                     $ G.toList vs
 
 {-# INLINABLE splitBuckets #-}
+
+--------------------------------------------------
+
+verify :: (KDCompare a, G.Vector v a) => KDTree v a -> Bool
+verify (Node d p l r) = leftValid && rightValid
+  where leftSmaller  = G.all (\x -> x `comp` p == LT) $ toVec l
+        rightSmaller = G.all (\x -> x `comp` p /= LT) $ toVec r
+        leftValid    = verify l && leftSmaller
+        rightValid   = verify r && rightSmaller
+        comp = dimCompare d
+verify (Leaf _ _ ) = True
 
 --------------------------------------------------
 
@@ -166,10 +177,10 @@ nearestNeighbors q = cata (nearestNeighborsF q)
 {-# INLINABLE nearestNeighbors #-}
 
 nearestNeighborsF :: (KDCompare a, G.Vector v a) => a -> KDTreeF v a [a] -> [a]
-nearestNeighborsF q (LeafF _ vs)    = L.sortBy (compare `on` realDistance q) . G.toList $ vs
+nearestNeighborsF q (LeafF _ vs)    = L.sortBy (compare `on` realSqDist q) . G.toList $ vs
 nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 
-  where x   = dimDistance d p q
+  where x   = dimDistance d q p
         go  = mergeBuckets x q
 
 {-# INLINABLE nearestNeighborsF #-}
@@ -179,9 +190,9 @@ nearestNeighborsF q (NodeF d p l r) = if x < 0 then go l r else go r l
 -- 'safe' region are prefered
 mergeBuckets :: (KDCompare a) => Double -> a -> [a] -> [a] -> [a]
 mergeBuckets d q = go
-  where rdq = realDistance q
+  where rdq = realSqDist q
         go []     bs                     = bs
-        go (a:as) bs     | rdq a < d     = a : go as bs
+        go (a:as) bs     | rdq a < d*d   = a : go as bs
         go as     []                     = as
         go (a:as) (b:bs) | rdq a < rdq b = a : go as (b:bs)
                          | otherwise     = b : go (a:as) bs
@@ -200,7 +211,7 @@ nearestNeighbor q = take 1 . nearestNeighbors q
 
 -- | return the points around a 'q'uery point up to radius 'r'
 pointsAround :: (KDCompare a, G.Vector v a) => Double -> a -> KDTree v a -> [a]
-pointsAround r q = takeWhile (\p -> realDistance q p < abs r) . nearestNeighbors q
+pointsAround r q = takeWhile (\p -> realSqDist q p < r*r) . nearestNeighbors q
 
 {-# INLINABLE pointsAround #-}
 --------------------------------------------------
@@ -210,15 +221,21 @@ partition :: (KDCompare a, G.Vector v a, Eq (Dim a))
           => Dim a -> Ordering -> a -> KDTree v a -> (KDTree v a, KDTree v a)
 partition dim ord q = go
   where go (Leaf d vs) = (Leaf d valid, Leaf d invalid)
-                           where predicate       = (== ord) . dimCompare dim q
+                           where predicate       = (== ord) . flip (dimCompare dim) q
                                  (valid,invalid) = G.unstablePartition predicate vs
         go (Node d p l r) | dim /= d  = (Node d p lval rval, Node d p linv rinv)
                           | otherwise = case dimCompare dim q p of
-                                          GT | ord == GT -> ( Node d p lval r
+                                          GT | ord == GT -> ( Node d p empty rval
+                                                            , Node d p l     rinv
+                                                            )
+                                          GT | ord == LT -> ( Node d p l     rval
+                                                            , Node d p empty rinv
+                                                            )
+                                          LT | ord == GT -> ( Node d p lval r
                                                             , Node d p linv empty
                                                             )
-                                          LT | ord == LT -> ( Node d p l rval
-                                                            , Node d p empty rinv
+                                             | ord == LT -> ( Node d p lval empty
+                                                            , Node d p linv r
                                                             )
                                           _              -> ( Node d p lval rval
                                                             , Node d p linv rinv
@@ -241,3 +258,17 @@ delete dim ord q = snd . partition dim ord q
 {-# INLINABLE delete #-}
 
 
+
+--------------------------------------------------------------------------------
+
+pretty :: (G.Vector v a, Show (v a), Show (Dim a), Show a) => KDTree v a -> String
+pretty = go 0
+  where go d (Leaf p xs)    = replicate (2*d) ' '
+                              ++ "Leaf " ++ show p ++ " "
+                              ++ G.foldl' (\acc x -> acc
+                                                     ++ replicate (2*d + 2) ' '
+                                                     ++ show x ++ "\n") "\n" xs
+        go d (Node k p l r) = replicate (2*d) ' '
+                              ++ "Node " ++ show k ++ " " ++ show p ++ "\n"
+                              ++ go (d+1) l
+                              ++ go (d+1) r
