@@ -54,6 +54,9 @@ main = do
        [ bench "linear_nr"  $ nf (Lin.pointsAround nrRadius q) vs
        , bench "kdtree_nr"  $ nf (KD.pointsAround nrRadius q) kd
        ]
+     , bgroup "create"
+       [ bench "kdtree" $ nf (KD.kdtree 64) vs
+       ]
      , bgroup "partition"
        [ bench "linear" $ nf (V.partition ((== ord) . KD.dimCompare dim q2)) vs
        , bench "kdtree" $ nf (KD.partition dim ord q2) kd
