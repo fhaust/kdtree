@@ -15,9 +15,9 @@ import qualified Data.List as L
 import Control.Applicative
 import Control.Arrow
 
-import qualified Data.KDTree                 as KD
-import qualified Data.KDTree.Internal.Common as KD
-import qualified Data.LinSearch              as LS
+import qualified Data.KDTree                    as KD
+import qualified Data.KDTree.Internal.Common    as KD
+import qualified Data.KDTree.Internal.LinSearch as LS
 
 import Linear
 

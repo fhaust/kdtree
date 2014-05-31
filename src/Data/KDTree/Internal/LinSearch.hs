@@ -3,7 +3,7 @@
 -- | This module is only used in
 -- | kdtree tests and benchmarks
 --------------------------------------------------
-module Data.LinSearch where
+module Data.KDTree.Internal.LinSearch where
 
 
 

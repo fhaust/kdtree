@@ -3,9 +3,9 @@
 
 import Criterion.Main
 
-import qualified Data.LinSearch              as Lin
-import qualified Data.KDTree                 as KD
-import qualified Data.KDTree.Internal.Common as KD
+import qualified Data.KDTree                    as KD
+import qualified Data.KDTree.Internal.Common    as KD
+import qualified Data.KDTree.Internal.LinSearch as Lin
 
 import qualified Data.Vector.Storable as V
 import qualified Data.List as L
