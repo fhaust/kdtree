@@ -12,8 +12,9 @@ module Data.KDTree where
 
 
 
-import qualified Data.Vector.Generic  as G
-import qualified Data.List            as L
+import qualified Data.Vector.Generic          as G
+import qualified Data.Vector.Algorithms.Intro as I
+import qualified Data.List                    as L
 
 
 import Data.Function
@@ -124,9 +125,8 @@ kdtreeF (BucketSize mb) = go
 splitBuckets :: (KDCompare a, G.Vector v a)
              => Dim a -> v a -> (v a, v a)
 splitBuckets dim vs = G.splitAt (G.length vs `quot` 2)
-                    . G.fromListN (G.length vs)
-                    . L.sortBy (dimCompare dim)
-                    $ G.toList vs
+                    . vecSortBy (dimCompare dim)
+                    $ vs
 
 {-# INLINABLE splitBuckets #-}
 
@@ -274,6 +274,7 @@ update bs dim ord q f = uncurry (merge bs)
 {-# INLINABLE update #-}
 
 --------------------------------------------------------------------------------
+-- mostly util stuff here
 
 pretty :: (G.Vector v a, Show (v a), Show (Dim a), Show a) => KDTree v a -> String
 pretty = go 0
@@ -286,3 +287,8 @@ pretty = go 0
                               ++ "Node " ++ show k ++ " " ++ show p ++ "\n"
                               ++ go (d+1) l
                               ++ go (d+1) r
+
+vecSortBy :: G.Vector v a => I.Comparison a -> v a -> v a
+vecSortBy f = G.modify (I.sortBy f)
+
+{-# INLINABLE vecSortBy #-}
