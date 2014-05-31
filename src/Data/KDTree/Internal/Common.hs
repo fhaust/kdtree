@@ -1,5 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Data.KDTree.Internal.Common where
 
 import qualified Data.Vector.Storable as V
