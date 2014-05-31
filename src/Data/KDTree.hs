@@ -177,8 +177,8 @@ mergeBuckets d q = go
 --------------------------------------------------
 
 -- | get the nearest neighbor of point q
-nearestNeighbor :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> [a]
-nearestNeighbor q = take 1 . nearestNeighbors q
+nearestNeighbor :: (KDCompare a, G.Vector v a) => a -> KDTree v a -> a
+nearestNeighbor q = head . nearestNeighbors q
 
 {-# INLINABLE nearestNeighbor #-}
 

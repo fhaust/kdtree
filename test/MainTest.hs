@@ -64,7 +64,7 @@ prop_nns (b,p,vs) = treeSearch == linSearch
         linSearch  = LS.nearestNeighbors p vs
 
 prop_nn :: (KD.BucketSize,V3 Double,KD.VV3D) -> Bool
-prop_nn (b,p,vs) = head treeSearch == linSearch
+prop_nn (b,p,vs) = treeSearch == linSearch
   where treeSearch = KD.nearestNeighbor p . KD.kdtree b $ vs
         linSearch  = LS.nearestNeighbor p vs
 
