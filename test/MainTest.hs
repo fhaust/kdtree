@@ -77,6 +77,11 @@ prop_nr (b,p,r,vs) = treeSearch == linSearch
 
 --------------------------------------------------
 
+prop_merge :: (KD.BucketSize, KD.VV3D, KD.VV3D) -> Bool
+prop_merge (bs, vs0, vs1) = KD.verify $ KD.merge bs (KD.kdtree bs vs0) (KD.kdtree bs vs1)
+
+--------------------------------------------------
+
 prop_partition :: (KD.Dim KD.V3D, Ordering, KD.BucketSize, KD.V3D, KD.VV3D) -> Bool
 prop_partition (dim,ord,bs,q,vs) = (L.null $ tsA L.\\ lsA) && (L.null $ tsB L.\\ lsB)
   where (tsA, tsB) = both KD.toList

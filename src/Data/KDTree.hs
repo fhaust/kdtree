@@ -19,6 +19,7 @@ import qualified Data.List            as L
 import Data.Function
 
 import Control.DeepSeq
+import Control.Arrow
 
 import Data.Functor.Foldable
 
@@ -105,7 +106,11 @@ toListF (NodeF _ _ l r) = l ++ r
 kdtree :: (KDCompare a, G.Vector v a) => BucketSize -> v a -> KDTree v a
 kdtree mb vs = ana (kdtreeF mb) (kFirst,vs)
 
+kdtree' :: (KDCompare a, G.Vector v a) => Dim a -> BucketSize -> v a -> KDTree v a
+kdtree' kf mb vs = ana (kdtreeF mb) (kf,vs)
+
 {-# INLINABLE kdtree #-}
+{-# INLINABLE kdtree' #-}
 
 kdtreeF :: (KDCompare a, G.Vector v a)
           => BucketSize -> (Dim a,v a) -> KDTreeF v a (Dim a,v a)
@@ -240,6 +245,29 @@ delete dim ord q = snd . partition dim ord q
 {-# INLINABLE delete #-}
 
 
+
+--------------------------------------------------------------------------------
+
+merge :: (Eq (Dim a), G.Vector v a, KDCompare a)
+      => BucketSize -> KDTree v a -> KDTree v a -> KDTree v a
+merge (BucketSize bs) = go
+  where go (Node d p l r) kd = Node d p (go l l') (go r r')
+          where (l',r') = partition d LT p kd
+
+        go (Leaf ad avs) (Leaf _ bvs) | G.length avs + G.length bvs < bs = Leaf ad (avs G.++ bvs)
+                                      | otherwise = kdtree' ad (BucketSize bs) (avs G.++ bvs)
+
+        go kd (Node d p l r) = Node d p (go l l') (go r r')
+          where (l',r') = partition d LT p kd
+
+
+--------------------------------------------------------------------------------
+
+update :: (KDCompare a, G.Vector v a, Eq (Dim a))
+       => BucketSize -> Dim a -> Ordering -> a -> (a -> a) -> KDTree v a -> KDTree v a
+update bs dim ord q f = uncurry (merge bs)
+                      . first (kdtree bs . G.map f . toVec)
+                      . partition dim ord q
 
 --------------------------------------------------------------------------------
 
