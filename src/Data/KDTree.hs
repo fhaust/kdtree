@@ -18,8 +18,6 @@ import qualified Data.List            as L
 
 import Data.Function
 
-import Linear
-
 import Control.DeepSeq
 
 import Data.Functor.Foldable
@@ -36,34 +34,6 @@ class KDCompare a where
   realSqDist  :: a -> a -> Double
   dimCompare  :: Dim a -> a -> a -> Ordering
 
-
---------------------------------------------------
-
-instance (Real a, Floating a) => KDCompare (V3 a) where
-
-  data Dim (V3 a) = V3X | V3Y | V3Z deriving (Show,Read,Eq,Enum)
-
-  kSucc k = case k of V3X -> V3Y; V3Y -> V3Z; V3Z -> V3X
-  kFirst = V3X
-
-  dimDistance k (V3 ax ay az) (V3 bx by bz) = realToFrac $ case k of
-                                                V3X -> ax - bx
-                                                V3Y -> ay - by
-                                                V3Z -> az - bz
-  realSqDist a b = realToFrac $ qd a b
-
-  dimCompare k (V3 ax ay az) (V3 bx by bz) = case k of
-                                                V3X -> compare ax bx
-                                                V3Y -> compare ay by
-                                                V3Z -> compare az bz
-
-
-
-  {-# INLINABLE kSucc #-}
-  {-# INLINABLE kFirst #-}
-  {-# INLINABLE dimDistance #-}
-  {-# INLINABLE realSqDist #-}
-  {-# INLINABLE dimCompare #-}
 
 --------------------------------------------------
 

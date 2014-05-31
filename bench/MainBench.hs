@@ -3,8 +3,9 @@
 
 import Criterion.Main
 
-import qualified Data.LinSearch as Lin
-import qualified Data.KDTree as KD
+import qualified Data.LinSearch              as Lin
+import qualified Data.KDTree                 as KD
+import qualified Data.KDTree.Internal.Common as KD
 
 import qualified Data.Vector.Storable as V
 import qualified Data.List as L
@@ -15,16 +16,12 @@ import System.Random
 
 import Linear
 
-
-type V3D = V3 Double
-type VV3D = V.Vector V3D
-
 main :: IO ()
 main = do
 
   -- create some samples
   gen <- getStdGen
-  let vs = force $ V.fromListN 50000 $ randoms gen :: V.Vector (V3 Double)
+  let vs = force $ V.fromListN 50000 $ randoms gen :: KD.VV3D
 
   -- get a query point that exists in the set
   --let q = vs V.! (V.length vs `quot` 2)
@@ -71,9 +68,9 @@ main = do
      ]
 
 
-{-# SPECIALIZE KD.nearestNeighbor  :: V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
-{-# SPECIALIZE KD.nearestNeighbors :: V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
-{-# SPECIALIZE KD.pointsAround     :: Double -> V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
+-- {-# SPECIALIZE KD.nearestNeighbor  :: V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
+-- {-# SPECIALIZE KD.nearestNeighbors :: V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
+-- {-# SPECIALIZE KD.pointsAround     :: Double -> V3 Double -> KD.KDTree V.Vector V3D -> [V3D] #-}
 
 
 instance NFData a => NFData (V3 a) where
