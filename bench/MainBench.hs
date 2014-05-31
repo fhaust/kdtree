@@ -70,8 +70,8 @@ main = do
        [ bench "kdtree" $ nf (KD.merge bs kd) kd
        ]
      , bgroup "update"
-       [ bench "linear" $ nf (Lin.update dim ord q2 (+1000)) vs
-       , bench "kdtree" $ nf (KD.update bs dim ord q2 (+1000)) kd
+       [ bench "linear" $ nf (Lin.update dim ord q2 (+0.1)) vs
+       , bench "kdtree" $ nf (KD.update bs dim ord q2 (+0.1)) kd
        ]
      ]
 
