@@ -260,6 +260,7 @@ merge (BucketSize bs) = go
         go kd (Node d p l r) = Node d p (go l l') (go r r')
           where (l',r') = partition d LT p kd
 
+{-# INLINABLE merge #-}
 
 --------------------------------------------------------------------------------
 
@@ -268,6 +269,8 @@ update :: (KDCompare a, G.Vector v a, Eq (Dim a))
 update bs dim ord q f = uncurry (merge bs)
                       . first (kdtree bs . G.map f . toVec)
                       . partition dim ord q
+
+{-# INLINABLE update #-}
 
 --------------------------------------------------------------------------------
 

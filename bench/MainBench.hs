@@ -30,7 +30,8 @@ main = do
 
 
   -- create kdtree from dataset
-  let kd  = force . KD.kdtree 64 $ vs
+  let bs       = 64
+  let kd       = force . KD.kdtree 64 $ vs
   let nrRadius = 0.1
 
   let dim = KD.V3X
@@ -64,6 +65,13 @@ main = do
      , bgroup "delete"
        [ bench "linear" $ nf (V.filter (not . (== ord) . KD.dimCompare dim q2)) vs
        , bench "kdtree" $ nf (KD.delete dim ord q2) kd
+       ]
+     , bgroup "merge"
+       [ bench "kdtree" $ nf (KD.merge bs kd) kd
+       ]
+     , bgroup "update"
+       [ bench "linear" $ nf (Lin.update dim ord q2 (+1000)) vs
+       , bench "kdtree" $ nf (KD.update bs dim ord q2 (+1000)) kd
        ]
      ]
 

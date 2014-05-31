@@ -45,3 +45,7 @@ select dim ord q = fst . partition dim ord q
 delete :: (KD.KDCompare b, V.Vector v b)
        => KD.Dim b -> Ordering -> b -> v b -> v b
 delete dim ord q = snd . partition dim ord q
+
+update :: (KD.KDCompare b, V.Vector v b)
+       => KD.Dim b -> Ordering -> b -> (b -> b) -> v b -> v b
+update dim ord q f = V.map (\v -> if KD.dimCompare dim v q == ord then f v else v)
